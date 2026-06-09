@@ -299,3 +299,20 @@ Load only when needed:
 **Claude Code paths:**
 - `~/.claude/skills/kamal-deploy-skill/references/kamal-commands.md`
 - `~/.claude/skills/kamal-deploy-skill/references/deploy-yml-reference.md`
+
+## Examples
+
+The `examples/` directory contains annotated deploy.yml snippets. Load the relevant file(s) when generating or explaining a configuration — they serve as authoritative patterns to follow.
+
+| File | What it shows |
+|---|---|
+| `examples/web-only.md` | Minimal single web server |
+| `examples/web-with-worker.md` | Web + background worker role |
+| `examples/with-postgres.md` | Web + PostgreSQL accessory |
+| `examples/with-redis.md` | Web + Redis accessory |
+| `examples/multi-destination.md` | Staging + production destinations |
+| `examples/local-registry.md` | Local registry (`registry.server: localhost:5555`) |
+| `examples/remote-builder.md` | Remote builder (`builder.remote`) |
+
+**Claude Code paths:** `~/.claude/skills/kamal-deploy-skill/examples/<file>.md`
+(fallback: `skills/kamal-deploy-skill/examples/<file>.md`)

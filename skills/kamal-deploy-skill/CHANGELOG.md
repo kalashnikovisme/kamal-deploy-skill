@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.0 — 2026-06-09
+
+- Add examples/ directory with 7 annotated deploy.yml snippets
+- SKILL.md references the examples table so the AI loads relevant files when generating configs
+
 ## 0.6.5 — 2026-06-09
 
 - Fix: local Kamal registry no longer generates a registry accessory; it simply sets registry.server: localhost:<port> in deploy.yml
