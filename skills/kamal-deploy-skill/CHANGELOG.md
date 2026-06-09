@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.5 — 2026-06-09
+
+- Fix: local Kamal registry no longer generates a registry accessory; it simply sets registry.server: localhost:<port> in deploy.yml
+- Asks for the port (default 5555) instead of hardcoding 4443
+
 ## 0.6.4 — 2026-06-09
 
 - Remote builder is no longer added automatically; a dedicated question now asks local vs remote with a plain-language explanation of the trade-offs
