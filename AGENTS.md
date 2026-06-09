@@ -1,0 +1,46 @@
+# Repository Instructions
+
+## Scope
+
+These instructions apply to the entire `kamal-deploy-skill` repository.
+
+## Cross-Platform Requirement
+
+This skill must work correctly in both **Codex** and **Claude Code**. Every change to `SKILL.md`, `agents/*.md`, and `references/*.md` must preserve compatibility for both environments:
+
+- **Codex**: `agents/*.md` files are loaded natively by the Codex agents system.
+- **Claude Code**: `agents/*.md` files are not auto-loaded. Claude must read them explicitly using its file-reading tool. Instructions in `SKILL.md` that say "load `agents/X.md`" must be written so Claude knows to use the Read tool with path `~/.claude/skills/kamal-deploy-skill/agents/X.md`.
+
+When writing or updating instructions:
+1. Use platform-neutral language where possible.
+2. If an instruction is platform-specific, label it with **Codex** or **Claude Code**.
+3. Verify that file-loading instructions are actionable for both runtimes.
+4. Never remove explicit file-path guidance from `SKILL.md`; it is required for Claude Code to function correctly.
+
+## End-of-Task Skill Sync
+
+At the end of every task that changes this repository, update `skills/kamal-deploy-skill/VERSION` before validation and sync.
+
+Version rules:
+
+- Use semantic versioning: `MAJOR.MINOR.PATCH`.
+- Every repository-changing task must increase the version exactly once before validation and sync.
+- If the skill has no version yet, create `skills/kamal-deploy-skill/VERSION` with `0.1.0`.
+- If the existing version is not full semantic versioning, normalize it first by treating missing components as `0`, then apply the required bump.
+- Bump `PATCH` for wording, clarification, examples, and narrow bugfixes.
+- Bump `MINOR` for new workflows, recipes, scripts, or materially expanded behavior.
+- Bump `MAJOR` for breaking instruction changes or behavior reversals.
+- Never leave `skills/kamal-deploy-skill/VERSION` unchanged after modifying this repository.
+- Maintain `skills/kamal-deploy-skill/CHANGELOG.md` for every version bump. Add a new entry for the new version and summarize what the user asked to change.
+
+Then run these commands from the repo root:
+
+```bash
+python3 ~/.codex/skills/.system/skill-creator/scripts/quick_validate.py ./skills/kamal-deploy-skill
+rm -rf ~/.codex/skills/kamal-deploy-skill
+cp -R ./skills/kamal-deploy-skill ~/.codex/skills/kamal-deploy-skill
+rm -rf ~/.claude/skills/kamal-deploy-skill
+cp -R ./skills/kamal-deploy-skill ~/.claude/skills/kamal-deploy-skill
+```
+
+This is a developer workflow requirement for local testing of the current skill revision in both Codex and Claude Code.
