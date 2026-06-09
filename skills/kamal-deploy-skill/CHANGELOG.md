@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.1 — 2026-06-09
+
+- Step 4 now validates the Dockerfile with a test build immediately after writing it; fixes errors and retries until the build passes before continuing
+
 ## 0.7.0 — 2026-06-09
 
 - Add examples/ directory with 7 annotated deploy.yml snippets

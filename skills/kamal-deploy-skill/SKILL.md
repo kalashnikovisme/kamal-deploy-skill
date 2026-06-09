@@ -177,10 +177,19 @@ Do not ask for secrets values in chat. Instruct the user to place secrets in `.k
 Follow the loaded recipe to:
 
 1. Create or verify a `Dockerfile` suited to the stack
-2. Create `config/deploy.yml` (and `config/deploy.staging.yml` / `config/deploy.production.yml` if multiple destinations)
-3. Create `.kamal/secrets` template with placeholder instructions
-4. Create `.kamal/hooks/` scripts if the recipe requires them
-5. Add `.kamal/secrets` to `.gitignore`
+2. **Validate the Dockerfile** — immediately after writing it, run a test build:
+   ```bash
+   docker build --platform linux/amd64 -t kamal-skill-test:build-check . && docker rmi kamal-skill-test:build-check
+   ```
+   - If Docker is not available locally, skip this step and note it in the summary.
+   - If the build **succeeds**: continue.
+   - If the build **fails**: read the full error output, identify the root cause, fix the `Dockerfile`, and re-run the build. Repeat until the build passes. Do not proceed to the next step until the Dockerfile builds successfully.
+   - Common fixable errors: missing base image tag, wrong `COPY` path, missing `RUN` dependency, incorrect `CMD` format, missing build argument.
+   - If the error is caused by missing application source files (e.g. the project has no `src/` yet), note this in the summary and continue — the Dockerfile is structurally valid.
+3. Create `config/deploy.yml` (and `config/deploy.staging.yml` / `config/deploy.production.yml` if multiple destinations)
+4. Create `.kamal/secrets` template with placeholder instructions
+5. Create `.kamal/hooks/` scripts if the recipe requires them
+6. Add `.kamal/secrets` to `.gitignore`
 
 ## Step 5: Update Documentation
 

@@ -17,6 +17,17 @@ When writing or updating instructions:
 3. Verify that file-loading instructions are actionable for both runtimes.
 4. Never remove explicit file-path guidance from `SKILL.md`; it is required for Claude Code to function correctly.
 
+## README Updates
+
+Before finishing any task that adds, removes, or materially changes a feature of this skill, update `README.md` to reflect the change. This includes:
+
+- New recipes or stacks
+- New configuration options or questions asked during setup
+- New features (e.g. Terraform provisioning, Dockerfile validation, examples directory)
+- Removed or renamed behavior
+
+Do not update README.md for internal wording fixes, formatting, or refactors that don't affect what the skill does from a user's perspective.
+
 ## End-of-Task Skill Sync
 
 At the end of every task that changes this repository, update `skills/kamal-deploy-skill/VERSION` before validation and sync.

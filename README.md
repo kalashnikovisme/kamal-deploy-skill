@@ -2,6 +2,12 @@
 
 A Claude Code / Codex skill for configuring [Kamal](https://kamal-deploy.org/) deployment on any technology stack — except Ruby on Rails (use [tramway-skill](https://github.com/Purple-Magic/tramway-skill/) for Rails).
 
+## Base features
+
+1. Configure kamal deployment
+2. Configure terraform
+3. Validate Dockerfiles
+
 ## What it does
 
 - Detects if the project is Ruby on Rails → redirects to tramway-skill
