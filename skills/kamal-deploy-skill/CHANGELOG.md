@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.4 — 2026-06-09
+
+- Remote builder is no longer added automatically; a dedicated question now asks local vs remote with a plain-language explanation of the trade-offs
+- Local Kamal registry + local builder combination is flagged as invalid with a clear warning
+
 ## 0.6.3 — 2026-06-09
 
 - DigitalOcean SSH key question now offers two options: use an existing key already in the DO profile (asks for key name, uses data source) or upload a new key from a local file (asks for path, uses resource)

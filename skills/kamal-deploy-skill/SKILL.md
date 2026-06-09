@@ -141,11 +141,6 @@ Collect the following (ask only what is not already determinable from the projec
    # image: use localhost:4443 instead of an external registry
    image: localhost:4443/<APP_NAME>
 
-   # builder: build on the remote server so localhost:4443 is reachable
-   builder:
-     remote: ssh://root@<SERVER_IP>
-     arch: amd64
-
    # registry: remove the external registry block entirely — no credentials needed
    # (delete the username/password lines)
 
@@ -167,10 +162,27 @@ Collect the following (ask only what is not already determinable from the projec
    kamal setup
    ```
 
-3. **Service name** — defaults to the directory name if not specified
-4. **Domain / hostname** — confirmed in 3a, or ask if not yet known
-5. **Accessories needed** — PostgreSQL? Redis? Both? Neither? (pre-fill based on stack detection)
-6. **Destinations** — does the user want separate staging and production configs?
+3. **Remote builder** — ask:
+
+   > "Where do you want Docker images to be built?
+   >
+   > - **Local** (default) — Kamal builds the image on this machine using your local Docker, then pushes it to the registry.
+   > - **Remote** — Kamal SSHes into the server and builds the image there. Useful when you don't have Docker locally, when the server architecture differs from your machine (e.g. building arm64 images on an amd64 laptop), or when the server has more CPU/RAM than your local machine."
+
+   - **Local** → no `builder` block needed; omit it from `deploy.yml`.
+   - **Remote** → add to `deploy.yml`:
+     ```yaml
+     builder:
+       remote: ssh://root@<SERVER_IP>
+       arch: amd64
+     ```
+
+   **Note for local Kamal registry users**: the registry runs on the server and is bound to `127.0.0.1:4443`. A remote builder is required in this case because only the server can reach `localhost:4443`. If the user chose local registry and selects local builder, warn them: "A local builder cannot push to a localhost registry on a remote server. Switch to remote builder, or use an external registry instead."
+
+4. **Service name** — defaults to the directory name if not specified
+5. **Domain / hostname** — confirmed in 3a, or ask if not yet known
+6. **Accessories needed** — PostgreSQL? Redis? Both? Neither? (pre-fill based on stack detection)
+7. **Destinations** — does the user want separate staging and production configs?
 
 Do not ask for secrets values in chat. Instruct the user to place secrets in `.kamal/secrets` and `.kamal/secrets-common` as instructed by the recipe.
 
