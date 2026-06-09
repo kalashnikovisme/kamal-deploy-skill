@@ -1,0 +1,4 @@
+interface:
+  display_name: "Kamal Deploy Skill"
+  short_description: "Deploy any product easy with Kamal"
+  default_prompt: "Use $kamal-deploy-skill to deploy any product easy with Kamal."

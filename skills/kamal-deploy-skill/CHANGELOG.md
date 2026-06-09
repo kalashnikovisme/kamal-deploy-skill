@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.0 — 2026-06-09
+
+- Add AGENTS.md (Codex entry point)
+- Add CLAUDE.md (Claude Code entry point)
+- Add agents/openai.yaml (Codex interface definition)
+- Add agents/reinstall.md (local reinstall instructions)
+
 ## 0.1.0 — 2026-06-09
 
 Initial release.
