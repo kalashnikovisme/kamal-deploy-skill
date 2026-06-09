@@ -65,7 +65,7 @@ Detect the project stack by checking for these files in order. Stop at the first
 | .NET | `*.csproj`, `*.sln` |
 | Elixir / Phoenix | `mix.exs` |
 
-For Node.js, also read `package.json` to determine the framework (Next.js, NestJS, Express, Fastify, Nuxt, Remix, etc.) — this affects the Dockerfile and health check strategy.
+For Node.js, also read `package.json` to determine the framework (Next.js, NestJS, Express, Fastify, Nuxt, Remix, etc.) — this affects the Dockerfile and health check strategy. Also check `next.config.js`/`next.config.ts` for `output: 'standalone'` vs `output: 'export'` to confirm server mode.
 
 For Python, also read `pyproject.toml` or `requirements.txt` to determine the framework (Django, FastAPI, Flask, etc.).
 
@@ -77,7 +77,8 @@ If no stack is detected, announce: "Could not detect the technology stack automa
 
 Load **only** the recipe matching the detected stack. Do not load multiple recipes.
 
-- Node.js → load `agents/recipes/nodejs.md`
+- Node.js (Next.js) → load `agents/recipes/nextjs.md`
+- Node.js (other) → load `agents/recipes/nodejs.md`
 - Python → load `agents/recipes/python.md`
 - Go → load `agents/recipes/go.md`
 - PHP / Laravel → load `agents/recipes/php-laravel.md`
@@ -88,7 +89,8 @@ Load **only** the recipe matching the detected stack. Do not load multiple recip
 
 **Claude Code file paths for each recipe:**
 
-- Node.js: `~/.claude/skills/kamal-deploy-skill/agents/recipes/nodejs.md` (fallback: `skills/kamal-deploy-skill/agents/recipes/nodejs.md`)
+- Node.js (Next.js): `~/.claude/skills/kamal-deploy-skill/agents/recipes/nextjs.md` (fallback: `skills/kamal-deploy-skill/agents/recipes/nextjs.md`)
+- Node.js (other): `~/.claude/skills/kamal-deploy-skill/agents/recipes/nodejs.md` (fallback: `skills/kamal-deploy-skill/agents/recipes/nodejs.md`)
 - Python: `~/.claude/skills/kamal-deploy-skill/agents/recipes/python.md` (fallback: `skills/kamal-deploy-skill/agents/recipes/python.md`)
 - Go: `~/.claude/skills/kamal-deploy-skill/agents/recipes/go.md` (fallback: `skills/kamal-deploy-skill/agents/recipes/go.md`)
 - PHP/Laravel: `~/.claude/skills/kamal-deploy-skill/agents/recipes/php-laravel.md` (fallback: `skills/kamal-deploy-skill/agents/recipes/php-laravel.md`)

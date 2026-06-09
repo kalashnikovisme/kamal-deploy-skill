@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.0 — 2026-06-09
+
+- Add dedicated Next.js recipe (`agents/recipes/nextjs.md`) for long-running server + background worker deployment
+- Update SKILL.md to route Next.js projects to the new recipe instead of the generic Node.js recipe
+
 ## 0.2.0 — 2026-06-09
 
 - Add AGENTS.md (Codex entry point)
