@@ -176,7 +176,7 @@ aliases:
   migrate: app exec --reuse 'bin/rails db:migrate'
 ```
 
-Use aliases via: `kamal console`, `kamal migrate`, etc.
+Use aliases via the wrapper-oriented operator flow in this skill when writing operator docs; when editing deploy.yml itself, keep the underlying Kamal alias semantics in mind.
 
 ## Hooks Path
 
@@ -217,8 +217,8 @@ env:
     APP_ENV: staging
 ```
 
-Deploy to staging: `kamal deploy -d staging`
-Deploy to production: `kamal deploy` (no `-d` flag uses `deploy.yml` defaults)
+Deploy to staging: `bin/deploy -d staging`
+Deploy to production: `bin/deploy` (no `-d` flag uses `deploy.yml` defaults)
 
 ## .kamal/secrets Format
 

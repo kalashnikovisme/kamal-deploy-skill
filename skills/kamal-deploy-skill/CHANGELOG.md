@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.0 — 2026-08-31
+
+- Make the skill explicitly multi-stack and repository-aware for the Arie wrapper flow
+- Prefer `bin/` wrappers over raw `kamal` commands in generated documentation and operator guidance
+- Document Bitwarden-backed destination routing, staging secret hydration, setup/restore sequencing, admin wrappers, and auxiliary `regsys` / `psql` / `authorize` flows
+- Update README, references, and local reinstall paths to match the current repository layout
+
 ## 0.7.1 — 2026-06-09
 
 - Step 4 now validates the Dockerfile with a test build immediately after writing it; fixes errors and retries until the build passes before continuing

@@ -1,163 +1,77 @@
-# Kamal Commands Reference
+# Wrapper Command Reference
 
-## Core Commands
+This reference documents the operational wrappers used by the Arie repo and similar Kamal-enabled projects that ship a `bin/` layer. Prefer these wrapper names in docs and operator handoffs instead of raw `kamal` commands when a matching wrapper exists.
 
-| Command | Description |
-|---------|-------------|
-| `kamal setup` | First-time setup: install Docker on servers, authenticate registry, build and deploy the app |
-| `kamal deploy` | Deploy a new version of the application |
-| `kamal redeploy` | Deploy without full bootstrap (faster, skips server provisioning) |
-| `kamal rollback [VERSION]` | Roll back to a previous version (use `kamal audit` to find version hashes) |
+## Routing Model
 
-## Application Commands
+- `bin/_bws_env` selects the Bitwarden project from `-d/--destination`
+- Staging and production use different Bitwarden project IDs
+- All wrapper commands execute through `bws run --project-id ... --`
 
-| Command | Description |
-|---------|-------------|
-| `kamal app details` | Show running container details |
-| `kamal app logs` | Show application logs |
-| `kamal app logs --follow` | Stream application logs |
-| `kamal app logs --lines 100` | Show last 100 log lines |
-| `kamal app restart` | Restart app containers |
-| `kamal app stop` | Stop app containers |
-| `kamal app start` | Start stopped containers |
-| `kamal app exec --reuse 'command'` | Execute a command in a running container |
-| `kamal app exec -i --reuse 'bash'` | Open an interactive shell in a running container |
-| `kamal app boot` | Boot app containers |
-| `kamal app remove` | Remove app containers |
+## Main App Wrappers
 
-## Build Commands
+| Wrapper | Purpose |
+|---------|---------|
+| `bin/setup` | Provision and deploy staging; cannot target production |
+| `bin/deploy` | Deploy the main app to the selected destination |
+| `bin/status` | Show the current deployment state |
+| `bin/logs` | View app logs |
+| `bin/console` | Open the app console |
+| `bin/app` | Run app-level Kamal operations such as `restart`, `details`, `start`, and `stop` |
+| `bin/accessory` | Run accessory-level Kamal operations |
+| `bin/remove` | Remove the main app deployment |
+| `bin/lock` | Inspect, acquire, or release the deploy lock |
+| `bin/boot` | Pass through to the underlying Kamal command layer |
 
-| Command | Description |
-|---------|-------------|
-| `kamal build push` | Build and push the image to the registry |
-| `kamal build pull` | Pull the latest image from the registry |
-| `kamal build details` | Show build details |
+## Staging Secrets
 
-## Accessory Commands
+When targeting staging, these wrappers source `.kamal/staging-secrets` before execution:
 
-| Command | Description |
-|---------|-------------|
-| `kamal accessory boot all` | Boot all accessories |
-| `kamal accessory boot postgres` | Boot a specific accessory |
-| `kamal accessory details all` | Show all accessory details |
-| `kamal accessory logs postgres` | Show logs for an accessory |
-| `kamal accessory exec postgres -- psql -U app` | Execute a command in an accessory container |
-| `kamal accessory restart postgres` | Restart an accessory |
-| `kamal accessory remove postgres` | Remove an accessory |
+- `bin/setup`
+- `bin/deploy`
+- `bin/console`
+- `bin/app`
+- `bin/accessory`
 
-## Proxy Commands
+That file is generated and managed by the wrapper flow. It exports:
 
-| Command | Description |
-|---------|-------------|
-| `kamal proxy boot` | Boot kamal-proxy on servers |
-| `kamal proxy details` | Show proxy container details |
-| `kamal proxy logs` | Show proxy logs |
-| `kamal proxy restart` | Restart the proxy |
-| `kamal proxy remove` | Remove the proxy |
+- `LOCAL_JWT_SECRET`
+- `LOCAL_PGRST_JWT_SECRET`
+- `LOCAL_SUPABASE_SERVICE_ROLE_KEY`
+- `LOCAL_SUPABASE_SERVICE_KEY`
 
-## Registry Commands
+## Setup and Restore
 
-| Command | Description |
-|---------|-------------|
-| `kamal registry login` | Log in to the image registry |
-| `kamal registry logout` | Log out from the registry |
+| Wrapper | Purpose |
+|---------|---------|
+| `bin/setup --snapshot <file>` | Provision, deploy, and restore snapshot data into staging |
+| `bin/setup --snapshot <file> --migration <path>` | Provision, deploy, restore, and rebuild the schema through the specified migration slice first |
+| `bin/restore --snapshot <file>` | Restore snapshot data into an already-existing destination |
+| `bin/restore --migration <path>` | Re-run restore using previously uploaded snapshot chunks and rebuild through the specified migration slice |
+| `bin/dump` | Produce a destination snapshot for later restore |
 
-## Server Commands
+## Admin Wrappers
 
-| Command | Description |
-|---------|-------------|
-| `kamal server bootstrap` | Bootstrap servers (install Docker) |
+These operate from `admin/`, strip destination flags before invoking Kamal, and still run through `bws run`:
 
-## Audit and Diagnostics
+- `bin/deploy-admin`
+- `bin/setup-admin`
+- `bin/console-admin`
+- `bin/logs-admin`
+- `bin/boot-admin`
 
-| Command | Description |
-|---------|-------------|
-| `kamal audit` | Show deployment audit log (versions, timestamps) |
-| `kamal details` | Show details for all containers (app + accessories + proxy) |
-| `kamal config` | Show the resolved configuration (WARNING: shows secrets) |
-| `kamal version` | Show installed Kamal version |
+## Auxiliary Wrappers
 
-## Lock Commands
+| Wrapper | Purpose |
+|---------|---------|
+| `bin/psql` | Open `psql` against the selected destination |
+| `bin/authorize` | Mint a short-lived authorize link for a user email |
+| `bin/regsys-build` | Build and push `recsys/Dockerfile.regsys` and `recsys/Dockerfile.jobs` |
+| `bin/regsys-registry-boot` | Boot the local registry container used by the RegSys image flow |
+| `bin/run-data-migration` | Run an explicit staging-only data migration script through the app console |
 
-| Command | Description |
-|---------|-------------|
-| `kamal lock acquire` | Manually acquire the deploy lock |
-| `kamal lock release` | Release a stuck deploy lock |
-| `kamal lock status` | Show current lock status |
+## Usage Guidance
 
-## Secrets Commands
-
-| Command | Description |
-|---------|-------------|
-| `kamal secrets fetch` | Fetch and display secrets (for debugging) |
-| `kamal secrets print` | Print secrets as environment variables |
-
-## Destination Flag
-
-Append `-d <destination>` to any command to target a specific destination:
-
-```bash
-kamal deploy -d staging
-kamal app logs -d production
-kamal rollback abc123 -d staging
-```
-
-## Common Workflows
-
-### First deployment
-
-```bash
-# 1. Ensure .kamal/secrets is populated
-# 2. Run setup (provisions servers + deploys)
-kamal setup
-
-# For staging:
-kamal setup -d staging
-```
-
-### Subsequent deployments
-
-```bash
-kamal deploy
-# Or for staging:
-kamal deploy -d staging
-```
-
-### Emergency rollback
-
-```bash
-# Find the version to roll back to:
-kamal audit
-
-# Roll back:
-kamal rollback <VERSION>
-```
-
-### Access production console / shell
-
-```bash
-# Interactive shell:
-kamal app exec -i --reuse 'bash'
-
-# Run a one-off command:
-kamal app exec --reuse 'env'
-```
-
-### View production logs live
-
-```bash
-kamal app logs --follow
-```
-
-### Restart without redeploying
-
-```bash
-kamal app restart
-```
-
-### Boot database on first setup
-
-```bash
-kamal accessory boot postgres
-kamal accessory boot redis
-```
+- Prefer wrapper names in README instructions, runbooks, and skill-generated documentation
+- Mention raw Kamal only when explaining what the wrapper ultimately invokes
+- Use destination-based examples such as `bin/deploy -d staging` or `bin/setup --snapshot <file>`

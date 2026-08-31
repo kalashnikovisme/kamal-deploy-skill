@@ -1,20 +1,23 @@
 # kamal-deploy-skill
 
-A Claude Code / Codex skill for configuring [Kamal](https://kamal-deploy.org/) deployment on any technology stack — except Ruby on Rails (use [tramway-skill](https://github.com/Purple-Magic/tramway-skill/) for Rails).
+A Claude Code / Codex skill for configuring [Kamal](https://kamal-deploy.org/) deployment on non-Rails projects across multiple stacks.
 
 ## Base features
 
-1. Configure kamal deployment
-2. Configure terraform
+1. Configure Kamal deployment
+2. Configure Terraform / infrastructure provisioning
 3. Validate Dockerfiles
+4. Document repository-specific wrapper workflows when present
 
 ## What it does
 
 - Detects if the project is Ruby on Rails → redirects to tramway-skill
-- Detects the technology stack automatically
+- Detects the technology stack automatically and loads the matching recipe
+- Supports Node.js / Next.js, Python, Go, PHP / Laravel, Java / Spring Boot, .NET, Elixir / Phoenix, Terraform, and unknown-stack fallback
 - Generates a `Dockerfile`, `config/deploy.yml`, and `.kamal/secrets` template suited to the stack
 - Configures accessories (PostgreSQL, Redis) as needed
 - Creates multi-destination configs (staging + production)
+- Prefers repository `bin/` wrappers over raw `kamal` commands when the project ships an operational layer like the Arie wrappers
 - Updates the project's README with deployment operations documentation
 
 ## Supported stacks
@@ -28,7 +31,8 @@ A Claude Code / Codex skill for configuring [Kamal](https://kamal-deploy.org/) d
 | Java | Spring Boot (Maven/Gradle), Quarkus, Micronaut |
 | .NET | ASP.NET Core (Minimal API, MVC, Razor Pages, Blazor Server) |
 | Elixir | Phoenix, plain OTP releases |
-| Unknown | Fetches latest Kamal docs and guides interactively |
+| Terraform | Server and DNS provisioning for existing or new infrastructure |
+| Unknown | Fetches fresh Kamal docs and guides interactively |
 
 ## Installation
 
@@ -73,6 +77,8 @@ Or just describe what you want:
 > "Set up Kamal deployment for this project"
 > "Configure deploy.yml for my Next.js app"
 > "Implement deployment with Kamal"
+
+If the target repository already exposes `bin/` wrappers, the generated documentation will use those wrapper names and the repository's destination-based flow instead of raw `kamal` commands.
 
 ## Development
 
