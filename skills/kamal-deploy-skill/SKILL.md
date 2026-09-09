@@ -14,24 +14,20 @@ This skill runs in two environments. Behavior differs for file loading:
 
 **Codex** - `agents/*.md` files are loaded natively by the Codex agents system. The "load `agents/X.md`" instructions work without extra steps.
 
-**Claude Code** - `agents/*.md` files are NOT auto-loaded. Whenever this document says "load `agents/X.md`", you MUST use the Read tool to read that file before continuing. Use the following path:
+**Claude Code** - `agents/*.md` files are NOT auto-loaded. Whenever this document says "load `agents/X.md`", you MUST use the Read tool to read that file before continuing.
 
-```text
-~/.claude/skills/kamal-deploy-skill/agents/X.md
-```
+Resolve every relative path in this document (`agents/X.md`, `references/X.md`, `examples/X.md`, `VERSION`, ...) in this order - this applies everywhere below, including the explicit path lists in Step 2 and the References/Examples sections:
 
-If that path does not resolve, fall back to a project-local path:
-
-```text
-skills/kamal-deploy-skill/agents/X.md
-```
+1. **Preferred (portable, works for any install method):** join the relative path onto this skill's own base directory, as announced when the skill was invoked (for example a line such as "Base directory for this skill: `<path>`"). This is correct regardless of whether the skill was installed manually, via a Claude Code plugin marketplace, or via Codex, since it always points at wherever this specific copy actually lives.
+2. **Fallback (legacy manual install):** `~/.claude/skills/kamal-deploy-skill/<relative-path>`
+3. **Fallback (running from inside the source repo):** `skills/kamal-deploy-skill/<relative-path>`
 
 Do NOT skip loading agent files. They contain mandatory rules for the active surface area. If a file cannot be read, report the error to the user instead of silently continuing.
 
 Version policy:
 
 1. The skill version is stored in `VERSION` at the root of this skill directory.
-2. **MANDATORY: When this skill is loaded, immediately read the `VERSION` file and show the version to the user** as the first output, before any other response. Format: `kamal-deploy-skill v<version>`. Try `~/.claude/skills/kamal-deploy-skill/VERSION`, then `~/.codex/skills/kamal-deploy-skill/VERSION`, then any repository-local `skills/kamal-deploy-skill/VERSION`.
+2. **MANDATORY: When this skill is loaded, immediately read the `VERSION` file and show the version to the user** as the first output, before any other response. Format: `kamal-deploy-skill v<version>`. Resolve the path using the same order as above: this skill's own base directory first, then `~/.claude/skills/kamal-deploy-skill/VERSION`, then `~/.codex/skills/kamal-deploy-skill/VERSION`, then any repository-local `skills/kamal-deploy-skill/VERSION`.
 3. If the user asks for the skill version, read and report that `VERSION` value.
 
 ## Step 0: Rails Guard
@@ -87,7 +83,7 @@ Load **only** the recipe matching the detected stack. Do not load multiple recip
 - Elixir / Phoenix -> load `agents/recipes/elixir-phoenix.md`
 - Unknown -> load `agents/recipes/unknown-stack.md`
 
-**Claude Code file paths for each recipe:**
+**Claude Code file paths for each recipe:** resolve using the order defined in "Runtime and File Loading" above (this skill's own base directory first); the paths below are the documented fallbacks.
 
 - Node.js (Next.js): `~/.claude/skills/kamal-deploy-skill/agents/recipes/nextjs.md` (fallback: `skills/kamal-deploy-skill/agents/recipes/nextjs.md`)
 - Node.js (other): `~/.claude/skills/kamal-deploy-skill/agents/recipes/nodejs.md` (fallback: `skills/kamal-deploy-skill/agents/recipes/nodejs.md`)
@@ -119,7 +115,7 @@ Based on the answers:
 | No | Yes | Load the Terraform recipe - server-only provisioning. |
 | No | No | Load the Terraform recipe - full provisioning. |
 
-**Claude Code path for Terraform recipe:** `~/.claude/skills/kamal-deploy-skill/agents/recipes/terraform.md`
+**Claude Code path for Terraform recipe** (resolve using the order in "Runtime and File Loading"): `~/.claude/skills/kamal-deploy-skill/agents/recipes/terraform.md`
 (fallback: `skills/kamal-deploy-skill/agents/recipes/terraform.md`)
 
 After the Terraform recipe completes, resume at Step 3b with the confirmed server IP and domain.
@@ -385,7 +381,7 @@ Load only when needed:
 - Wrapper command reference: `references/kamal-commands.md`
 - deploy.yml structure reference: `references/deploy-yml-reference.md`
 
-**Claude Code paths:**
+**Claude Code paths** (resolve using the order in "Runtime and File Loading"):
 - `~/.claude/skills/kamal-deploy-skill/references/kamal-commands.md`
 - `~/.claude/skills/kamal-deploy-skill/references/deploy-yml-reference.md`
 
@@ -403,5 +399,5 @@ The `examples/` directory contains annotated deploy.yml snippets. Load the relev
 | `examples/local-registry.md` | Local registry (`registry.server: localhost:5555`) |
 | `examples/remote-builder.md` | Remote builder (`builder.remote`) |
 
-**Claude Code paths:** `~/.claude/skills/kamal-deploy-skill/examples/<file>.md`
+**Claude Code paths** (resolve using the order in "Runtime and File Loading"): `~/.claude/skills/kamal-deploy-skill/examples/<file>.md`
 (fallback: `skills/kamal-deploy-skill/examples/<file>.md`)

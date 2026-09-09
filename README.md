@@ -35,19 +35,44 @@ A Claude Code / Codex skill for configuring [Kamal](https://kamal-deploy.org/) d
 | Terraform | Server and DNS provisioning for existing or new infrastructure |
 | Unknown | Fetches fresh Kamal docs and guides interactively |
 
+## Versioning
+
+`skills/kamal-deploy-skill/VERSION` is the human-readable semantic version of the skill's content, bumped on every change per `CHANGELOG.md`. It is not used as the plugin update identity — Claude Code's marketplace/plugin update mechanism tracks this repository's git history directly, so `claude plugin update` always pulls the latest commit regardless of the `VERSION` value.
+
 ## Installation
 
-### Claude Code
+### Claude Code — recommended
 
-```bash
-# From the skill repo directory:
-cp -R ./skills/kamal-deploy-skill ~/.claude/skills/kamal-deploy-skill
+This repository is both the source of truth and a Claude Code plugin marketplace. Add the marketplace once:
+
+```text
+/plugin marketplace add kalashnikovisme/kamal-deploy-skill
 ```
 
-Or if installing from a published version, clone and copy:
+Then install the plugin:
+
+```text
+/plugin install kamal-deploy-skill@kamal-deploy-skill-marketplace
+```
+
+That's it — no `.claude/settings.json` edit needed, the plugin registers the skill automatically.
+
+## Updating
+
+Update on demand:
 
 ```bash
-git clone https://github.com/Purple-Magic/kamal-deploy-skill.git
+claude plugin update kamal-deploy-skill@kamal-deploy-skill-marketplace
+```
+
+Or turn on auto-update for the marketplace from Claude Code's plugin UI (`/plugin` → marketplace settings) so new releases are picked up without a manual step. Manual (`cp -R`) installs, below, do **not** get this — they stay frozen at whatever was copied until you re-sync them by hand.
+
+### Manual installation (fallback)
+
+Use this only if you can't add a plugin marketplace in your environment.
+
+```bash
+git clone https://github.com/kalashnikovisme/kamal-deploy-skill.git
 cp -R kamal-deploy-skill/skills/kamal-deploy-skill ~/.claude/skills/kamal-deploy-skill
 ```
 
@@ -59,11 +84,24 @@ Then add to your Claude Code project settings (`.claude/settings.json`):
 }
 ```
 
-### Codex
+To update a manual install, pull the latest source and re-copy over the installed directory:
 
 ```bash
-cp -R ./skills/kamal-deploy-skill ~/.codex/skills/kamal-deploy-skill
+cd kamal-deploy-skill && git pull
+rm -rf ~/.claude/skills/kamal-deploy-skill
+cp -R skills/kamal-deploy-skill ~/.claude/skills/kamal-deploy-skill
 ```
+
+### Codex
+
+Codex has no plugin marketplace mechanism, so installation is manual only:
+
+```bash
+git clone https://github.com/kalashnikovisme/kamal-deploy-skill.git
+cp -R kamal-deploy-skill/skills/kamal-deploy-skill ~/.codex/skills/kamal-deploy-skill
+```
+
+Update the same way: `git pull`, then `rm -rf ~/.codex/skills/kamal-deploy-skill && cp -R skills/kamal-deploy-skill ~/.codex/skills/kamal-deploy-skill`.
 
 ## Usage
 
@@ -83,13 +121,23 @@ If the target repository already exposes `bin/` wrappers, the generated document
 
 ## Development
 
+These steps are for people editing this repository, not for installing the skill — see [Installation](#installation) for that.
+
 ### Sync skill locally after changes
+
+Local-only convenience for testing your working tree before pushing; it does not replace the marketplace update flow above.
 
 ```bash
 rm -rf ~/.claude/skills/kamal-deploy-skill
 cp -R ./skills/kamal-deploy-skill ~/.claude/skills/kamal-deploy-skill
 rm -rf ~/.codex/skills/kamal-deploy-skill
 cp -R ./skills/kamal-deploy-skill ~/.codex/skills/kamal-deploy-skill
+```
+
+### Validating the plugin/marketplace manifest
+
+```bash
+claude plugin validate . --strict
 ```
 
 ### Adding a new recipe

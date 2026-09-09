@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.10.0 — 2026-09-09
+
+- Add Claude Code plugin marketplace support: `.claude-plugin/marketplace.json` and `.claude-plugin/plugin.json` at the repo root, pointing at `./skills/kamal-deploy-skill`. `claude plugin validate . --strict` passes.
+- Marketplace installation (`/plugin marketplace add` + `/plugin install`) is now the recommended Claude Code install path, with `claude plugin update` / marketplace auto-update as the update mechanism. Manual `cp -R` install is now documented as an explicit fallback that does not auto-update.
+- `marketplace.json` intentionally has no static `version` field - plugin update identity is the marketplace repo's git history, not a duplicated semver. `VERSION` remains the skill's own human-readable semantic version.
+- Removed `agents/reinstall.md` from the shipped skill: it was a dev-only file with a hardcoded personal absolute path, shipped inside the plugin package where Codex's native `agents/*.md` auto-load could pick it up and instruct self-reinstall as part of normal skill use. The equivalent dev-only sync workflow already lives in the repo root `AGENTS.md`/`CLAUDE.md` (not shipped as part of the installed skill).
+- `SKILL.md`'s "Runtime and File Loading" section now resolves `agents/`, `references/`, `examples/`, and `VERSION` paths relative to the skill's own announced base directory first, falling back to the hardcoded `~/.claude/skills/kamal-deploy-skill/...` path only for legacy manual installs - this keeps recipe/reference/example loading correct regardless of where the plugin marketplace installs the skill.
+- Fixed stale `Purple-Magic/kamal-deploy-skill` GitHub URL in README to the actual repo owner (`kalashnikovisme/kamal-deploy-skill`, per `git remote`).
+
 ## 0.9.0 — 2026-09-09
 
 - Add Step 4.5: generate a minimal `bin/deploy` wrapper when the target repo has no Kamal `bin/` layer yet, instead of documenting a `bin/deploy` command that was never created

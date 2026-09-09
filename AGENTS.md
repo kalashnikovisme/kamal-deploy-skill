@@ -48,10 +48,11 @@ Then run these commands from the repo root:
 
 ```bash
 python3 ~/.codex/skills/.system/skill-creator/scripts/quick_validate.py ./skills/kamal-deploy-skill
+claude plugin validate . --strict
 rm -rf ~/.codex/skills/kamal-deploy-skill
 cp -R ./skills/kamal-deploy-skill ~/.codex/skills/kamal-deploy-skill
 rm -rf ~/.claude/skills/kamal-deploy-skill
 cp -R ./skills/kamal-deploy-skill ~/.claude/skills/kamal-deploy-skill
 ```
 
-This is a developer workflow requirement for local testing of the current skill revision in both Codex and Claude Code.
+This is a developer workflow requirement for local testing of the current skill revision in both Codex and Claude Code. It exists purely to test your working tree locally — it is not how end users install or update the skill; the recommended path for users is the Claude Code plugin marketplace described in `README.md`. Keep `.claude-plugin/plugin.json`'s `version` field in sync with `skills/kamal-deploy-skill/VERSION` whenever you bump it.
