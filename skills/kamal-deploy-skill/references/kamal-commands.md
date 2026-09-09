@@ -75,3 +75,12 @@ These operate from `admin/`, strip destination flags before invoking Kamal, and 
 - Prefer wrapper names in README instructions, runbooks, and skill-generated documentation
 - Mention raw Kamal only when explaining what the wrapper ultimately invokes
 - Use destination-based examples such as `bin/deploy -d staging` or `bin/setup --snapshot <file>`
+
+## Flag Passthrough Contract
+
+Any generated or repo-provided wrapper MUST forward Kamal's own flags to the underlying `kamal` invocation unmodified - most importantly `-q`/`--quiet`, which mutes per-step output until the command finishes or errors (https://kamal-deploy.org/docs/commands/deploy/). A wrapper that consumes-and-drops unrecognized flags, pipes/captures kamal's output, or chains a log tail after the deploy call will silently defeat `--quiet` even though the flag was accepted without error. See SKILL.md Step 4.5 for the full rule set and a minimal `bin/deploy` template that satisfies it.
+
+```bash
+bin/deploy -q
+bin/deploy -d staging --quiet
+```

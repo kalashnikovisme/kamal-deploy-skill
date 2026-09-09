@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.0 — 2026-09-09
+
+- Add Step 4.5: generate a minimal `bin/deploy` wrapper when the target repo has no Kamal `bin/` layer yet, instead of documenting a `bin/deploy` command that was never created
+- Fix: wrapper generation now guarantees `-q`/`--quiet` (and every other Kamal flag) reaches `kamal deploy` unmodified - no consuming unrecognized flags, no piping/capturing kamal's output, no log tail chained after deploy
+- Document the flag-passthrough contract in `references/kamal-commands.md` and SKILL.md Step 5's example commands
+
 ## 0.8.0 — 2026-08-31
 
 - Make the skill explicitly multi-stack and repository-aware for the Arie wrapper flow

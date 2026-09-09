@@ -18,6 +18,7 @@ A Claude Code / Codex skill for configuring [Kamal](https://kamal-deploy.org/) d
 - Configures accessories (PostgreSQL, Redis) as needed
 - Creates multi-destination configs (staging + production)
 - Prefers repository `bin/` wrappers over raw `kamal` commands when the project ships an operational layer like the Arie wrappers
+- Generates a minimal `bin/deploy` wrapper when the project has no Kamal `bin/` layer yet, guaranteed to forward `-q`/`--quiet` and all other Kamal flags unmodified
 - Updates the project's README with deployment operations documentation
 
 ## Supported stacks
@@ -78,7 +79,7 @@ Or just describe what you want:
 > "Configure deploy.yml for my Next.js app"
 > "Implement deployment with Kamal"
 
-If the target repository already exposes `bin/` wrappers, the generated documentation will use those wrapper names and the repository's destination-based flow instead of raw `kamal` commands.
+If the target repository already exposes `bin/` wrappers, the generated documentation will use those wrapper names and the repository's destination-based flow instead of raw `kamal` commands. If it doesn't, the skill creates a minimal `bin/deploy` that forwards Kamal's own flags (including `-q`/`--quiet`) straight through, so `bin/deploy -q` behaves exactly like `kamal deploy -q`.
 
 ## Development
 

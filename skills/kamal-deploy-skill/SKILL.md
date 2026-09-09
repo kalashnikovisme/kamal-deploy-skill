@@ -191,6 +191,52 @@ Follow the loaded recipe to:
 5. Create `.kamal/hooks/` scripts if the recipe requires them
 6. Add `.kamal/secrets` to `.gitignore`
 
+## Step 4.5: Create bin/ Wrapper Scripts
+
+Check whether the target repo already has a Kamal `bin/` layer (e.g. `bin/deploy`, `bin/setup`).
+
+- **Wrappers already exist (Arie layout or similar)** - do not overwrite them. Skip script creation. In Step 5, document the existing wrappers as-is; do not assume they follow the rules below unless you've read them and confirmed it.
+- **No `bin/` wrappers exist** - create at minimum `bin/deploy`. Create companion wrappers (`bin/setup`, `bin/logs`, `bin/console`, `bin/status`, `bin/remove`, `bin/app`) only if the user wants the fuller operational layer; otherwise document raw `kamal` commands for those in Step 5 instead of inventing wrappers nobody asked for.
+
+### Wrapper rules (mandatory)
+
+Kamal has real flags that must reach the real `kamal` binary completely unmodified, most importantly `-q`/`--quiet` (mutes per-step output until the run finishes or errors — see https://kamal-deploy.org/docs/commands/deploy/). A wrapper silently breaks `--quiet` if it does any of the following. Avoid all of them:
+
+1. **Never consume-and-drop unrecognized flags.** Only *read* flags the wrapper itself needs (e.g. peek `-d`/`--destination` to pick which secrets file to source) - don't strip them out of the argument list. Every argument the wrapper doesn't specifically need to inspect, `-q`/`--quiet` included, must reach `kamal` verbatim via `"$@"`.
+2. **Never pipe or capture kamal's output.** `kamal deploy "$@" | cat`, `| tee`, or `output=$(kamal deploy "$@")` changes kamal's TTY detection and can force it to print progress it would otherwise suppress. Invoke kamal as the last statement with `exec kamal deploy "$@"` so it talks to the real terminal directly.
+3. **Never chain a log tail (or anything else) after deploy.** Do not append `&& kamal app logs --follow` or similar after the deploy call - that reintroduces exactly the log stream `--quiet` exists to suppress. A "watch logs after deploy" mode must be its own explicit opt-in flag, never on by default.
+4. **Never hardcode `--verbose` or otherwise override the caller's flags.** If the wrapper adds its own flags (e.g. a config path), append them alongside the forwarded `"$@"`, never in place of it.
+
+### Minimal bin/deploy template
+
+Adapt destination/secrets sourcing to match the recipe and the registry chosen in Step 3b; the forwarding contract in the last line must stay intact:
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Peek -d/--destination WITHOUT removing it from "$@" - kamal needs to see it too.
+destination="production"
+args=("$@")
+for i in "${!args[@]}"; do
+  if [[ "${args[$i]}" == "-d" || "${args[$i]}" == "--destination" ]]; then
+    destination="${args[$((i + 1))]}"
+  fi
+done
+
+if [[ -f ".kamal/secrets-${destination}" ]]; then
+  set -a
+  source ".kamal/secrets-${destination}"
+  set +a
+fi
+
+exec kamal deploy "$@"
+```
+
+Make it executable: `chmod +x bin/deploy`.
+
+After creating it, verify the contract holds: run `bin/deploy -q` (or `bin/deploy --quiet`) against a real or staging destination and confirm no per-step output prints unless the deploy fails. If output still appears, the fix is almost always rule 2 or rule 3 above - grep the wrapper for a pipe, a captured `$()`, or a trailing command after the `kamal deploy` call.
+
 ## Step 5: Document the Workflow
 
 After configuration is complete, update (or create) the project's documentation file with deployment operations. Target file priority:
@@ -199,7 +245,7 @@ After configuration is complete, update (or create) the project's documentation 
 2. `docs/deployment.md` - if a `docs/` directory exists but no README section is appropriate
 3. `README.md` - create it if neither exists
 
-If the target repository provides `bin/` wrappers for Kamal operations, document those wrappers instead of raw `kamal` commands. Use the destination-based flow and Bitwarden-backed execution model that the repository actually ships.
+If the target repository provides `bin/` wrappers for Kamal operations - whether pre-existing or just created in Step 4.5 - document those wrappers instead of raw `kamal` commands. Use the destination-based flow and Bitwarden-backed execution model that the repository actually ships.
 
 The deployment section MUST include a concise, implementation-ready wrapper-oriented workflow. Use the project-specific destinations and secret names, but prefer these command forms:
 
@@ -219,6 +265,15 @@ bin/deploy
 
 ```bash
 bin/deploy -d staging
+```
+
+### Silent Deploy
+
+`bin/deploy` forwards Kamal's own flags untouched, so `-q`/`--quiet` works exactly as it does with raw `kamal deploy`: no per-step output unless the deploy errors.
+
+```bash
+bin/deploy -q
+bin/deploy -d staging --quiet
 ```
 
 ### Setup + Snapshot Restore
