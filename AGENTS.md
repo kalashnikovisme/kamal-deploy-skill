@@ -55,4 +55,6 @@ rm -rf ~/.claude/skills/kamal-deploy-skill
 cp -R ./skills/kamal-deploy-skill ~/.claude/skills/kamal-deploy-skill
 ```
 
-This is a developer workflow requirement for local testing of the current skill revision in both Codex and Claude Code. It exists purely to test your working tree locally — it is not how end users install or update the skill; the recommended path for users is the Claude Code plugin marketplace described in `README.md`. Keep `.claude-plugin/plugin.json`'s `version` field in sync with `skills/kamal-deploy-skill/VERSION` whenever you bump it.
+This is a developer workflow requirement for local testing of the current skill revision in both Codex and Claude Code. It exists purely to test your working tree locally — it is not how end users install or update the skill; the recommended path for users is the Claude Code plugin marketplace described in `README.md`.
+
+Do not add a `.claude-plugin/plugin.json` file. A plugin manifest that declares components (or is auto-discovered via its `skills/` layout) alongside `.claude-plugin/marketplace.json`'s own `"skills"` array causes Claude Code to refuse to load the plugin ("conflicting manifests"). `marketplace.json` is the single source of truth for this plugin's component list.

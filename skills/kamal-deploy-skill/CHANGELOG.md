@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.1 — 2026-09-09
+
+- Fix: `/plugin install` failed with "conflicting manifests: both plugin.json and marketplace entry specify components" - removed `.claude-plugin/plugin.json`, which was never required by the plugin spec and conflicted with `marketplace.json`'s own `"skills"` array (its mere presence next to a `skills/` directory triggers component auto-discovery, colliding with the explicit list). `marketplace.json` is now the sole component-spec source for this plugin.
+
 ## 0.10.0 — 2026-09-09
 
 - Add Claude Code plugin marketplace support: `.claude-plugin/marketplace.json` and `.claude-plugin/plugin.json` at the repo root, pointing at `./skills/kamal-deploy-skill`. `claude plugin validate . --strict` passes.

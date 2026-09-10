@@ -24,7 +24,7 @@ Do not update README.md for internal wording fixes, formatting, or refactors tha
 
 ## End-of-Task Skill Sync
 
-At the end of every task that changes this repository, update `skills/kamal-deploy-skill/VERSION`, keep `.claude-plugin/plugin.json`'s `version` field in sync with it, validate, and sync with:
+At the end of every task that changes this repository, update `skills/kamal-deploy-skill/VERSION`, validate, and sync with:
 
 ```bash
 claude plugin validate . --strict
@@ -35,3 +35,5 @@ cp -R ./skills/kamal-deploy-skill ~/.codex/skills/kamal-deploy-skill
 ```
 
 This local sync is a developer-only convenience for testing your working tree — it is not how end users install or update the skill. The recommended path for users is the Claude Code plugin marketplace described in `README.md`; see it for the marketplace add/install/update commands.
+
+Do not add a `.claude-plugin/plugin.json` file. A plugin manifest declaring components alongside `marketplace.json`'s own `"skills"` array causes Claude Code to refuse to load the plugin with a "conflicting manifests" error — `marketplace.json` is the single source of truth for this plugin's component list.
