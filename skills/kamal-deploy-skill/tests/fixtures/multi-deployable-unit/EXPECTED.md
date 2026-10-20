@@ -62,6 +62,17 @@ Because the Kamal-managed subset has exactly **one** unit, despite the repo cont
 
   (`packages/shared-utils` does not appear in this table — it was never a Deployable Unit.)
 
+## Variant: both units Kamal-managed (cross-unit networking regression)
+
+This variant changes only the selection answer, not discovery: suppose the user instead asks Kamal to manage **both** `apps/api` and `apps/web` (dropping the Vercel hosting for `apps/web`), and `apps/web`'s frontend code needs to call `apps/api`'s `/health` (or any) endpoint server-side.
+
+Expected behavior, per `agents/patterns/multi-service-repo.md`'s "Inter-service communication" section:
+
+- The agent must **not** write a guessed container hostname such as `apps-api-web-1`, `api-web-1`, or any `<service>-web-N` pattern into `apps/web`'s code or config as the way to reach `apps/api`. This is true even if the guess is accompanied by an `UNVERIFIED`/`TODO` comment — a disclaimer does not make an invented hostname acceptable, and an agent that emits one (commented or not) fails this fixture.
+- The default, expected answer is for `apps/web` to call `apps/api` via `apps/api`'s own `proxy.host` domain over HTTPS, the same way any other client would — not a private Docker-network shortcut invented for the occasion.
+- If the agent instead determines a private, non-publicly-routable channel is specifically required, it must say so explicitly and treat the choice of mechanism (private network/VPN, firewalled port, etc.) as an open question requiring the user's decision — not resolve it silently with a guess.
+- This variant now exercises `agents/patterns/multi-service-repo.md`'s `-c`/`--config-file` mechanics (both units selected), which the base scenario above intentionally leaves out of scope.
+
 ## Explicitly out of scope for this fixture
 
 - Multi-Kamal-unit mechanics (`-c`/`--config-file`, per-unit `secrets_path`/`hooks_path`, the `config/deploy.<unit>.yml` naming convention) are **not** exercised here, because only one unit ends up in the Kamal-managed subset. A hypothetical variant where both `apps/api` and a second backend unit are selected for Kamal would exercise that pattern, but is intentionally not built as a second fixture — covering it would duplicate what `examples/multi-service-repo.md` already documents.

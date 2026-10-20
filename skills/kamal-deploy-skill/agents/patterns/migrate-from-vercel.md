@@ -90,11 +90,58 @@ Never invent a secret or environment variable value that isn't actually availabl
 - Whether Vercel-managed storage should be kept (as an external service) or replaced
 - Observability/analytics expectations that should carry over
 
+## Gate: Phase 4 cannot start until Phases 1–3 are shown complete
+
+This gate is **operational, not implied by phase ordering**. For every migrating Deployable Unit, before any target file (Dockerfile, `deploy.yml`, secrets template, or application code) is generated or changed, the agent must output all three of the following, explicitly, for that unit:
+
+```
+CURRENT STATE
+<Phase 1 inventory — what Vercel currently provides, with evidence/source per item>
+
+TARGET-RELEVANT MIGRATION DELTA
+<Phase 2 classification, limited to findings that affect what Step 2–5 would generate —
+ i.e. everything except items classified "Unknown / requires user input" that are purely
+ cutover-relevant (domains, preview-deploy workflow, dashboard-only schedules)>
+
+UNRESOLVED BLOCKERS
+<Phase 3 unknowns that materially affect target generation, and their resolution status>
+```
+
+A blocker is **target-relevant** (must be resolved before Phase 4) if leaving it unresolved would force the agent to invent, guess, or omit something in the generated Dockerfile/`deploy.yml`/secrets/application code. A blocker is **cutover-only** (may stay open past Phase 4) if it only matters for Phase 6–12 — e.g. the exact current DNS record value, or whether preview deployments are workflow-critical. When classifying an unknown, say explicitly which bucket it's in and why; do not default everything to "cutover-only" to skip the gate.
+
+If any target-relevant blocker is still unresolved, Phase 4 does not start for that unit: no Dockerfile, `deploy.yml`, secrets template, or application-code change may be written. Ask the user to resolve it, or ask whether they want to proceed with an explicit, stated gap (which itself becomes a recorded migration decision, not a silent skip).
+
+**Regression protection:** `tests/fixtures/vercel-migration/EXPECTED.md` requires that no target file exists for `apps/web` until this three-part report has been produced for it, and specifically that the `KV_REST_API_URL` unknown (Phase 3) is resolved or explicitly deferred-with-sign-off before `config/deploy.yml`/Dockerfile generation — not silently dropped.
+
 ## Phase 4: Build the Kamal target using the existing Skill, unchanged
 
 Resume the normal SKILL.md flow for this unit exactly as it runs for a greenfield unit: Step 2 (stack detection), Step 3 (recipe + cross-cutting patterns), Step 4 (gather info — informed by Phase 3's answers, not re-asked differently), Step 5 (Dockerfile/`deploy.yml`/secrets), Step 5.5 (wrappers), Step 6 (docs). This pattern supplies **inputs** to that flow (e.g. "this env var's value isn't in git — collect it as a real secret, don't template a placeholder value that looks real") — it never generates its own Dockerfile, `deploy.yml`, or accessory block.
 
 **Do not remove, rewrite, or disable any Vercel configuration (`vercel.json`, `.vercel/`, Vercel-specific CI steps) while building the target.** The old platform's configuration stays exactly as it is through this entire phase — target generation is additive, not a replacement operation.
+
+### 4a. Current-service vs. target-service for stateful dependencies (integrates with SKILL.md Step 4b #6)
+
+SKILL.md Step 4b #6 asks whether a detected database/cache dependency should be a Kamal accessory or an external service. During a migration, answering "Kamal-managed accessory" is **not sufficient by itself** — it does not yet say what happens to the data/service the unit currently uses in production. Before proposing or creating a Kamal accessory for a migrating unit, determine, as part of Phase 1/2 above:
+
+- **CURRENT**: what production actually uses today — an external managed provider (Neon, Supabase, PlanetScale, Upstash, Vercel KV/Postgres, etc.), a separately provisioned instance, or something not yet determined. Look for connection strings/env references, `@vercel/kv`/`@vercel/postgres`/`@vercel/blob` usage, and any infra-as-code pointing elsewhere.
+- **TARGET**: what Step 4b #6 resolves to for the new Kamal deployment.
+
+If CURRENT cannot be determined from the repo, ask — do not assume "no evidence of an external service" means "there isn't one." Never treat "the user wants Kamal-managed accessories going forward" as approval to discard or replace an existing production database/cache. If CURRENT and TARGET differ for a stateful service (e.g. current = managed Postgres provider, target = Kamal accessory), this is a **data/state migration**, not just a config choice: it requires its own explicit decision from the user (migrate data now, run both temporarily, accept data loss on a non-critical dataset, etc.) before Phase 4 generates the accessory block. This unknown is target-relevant under the gate above whenever the target would create or point at a *different* service than CURRENT — it blocks Phase 4 for that dependency until resolved.
+
+### 4b. Vercel-live application-code compatibility check
+
+Per the "What this pattern does not own" section, Vercel keeps serving production through cutover (Phase 6–11). Any application-code change made as part of target generation can be committed to the same branch Vercel auto-builds, **before** cutover — so "don't delete Vercel config" is not enough; code changes made for Kamal must not silently break the still-live Vercel deployment. Before applying any application-code change (as opposed to purely deployment-side files like `Dockerfile`/`deploy.yml`/`.kamal/*`, which Vercel never builds), classify it:
+
+| Classification | Meaning |
+|---|---|
+| Deployment-only, invisible to Vercel | `Dockerfile`, `deploy.yml`, `.kamal/*`, CI steps scoped to Kamal — Vercel's build never touches these |
+| Application change compatible with current Vercel deployment | e.g. adding a `/api/health` route that Vercel will happily also serve |
+| Application change with uncertain Vercel impact | e.g. a runtime/version bump, a dependency change — verify against current Vercel/framework behavior before assuming it's safe, rather than asserting it's harmless |
+| Application change incompatible with current Vercel deployment | e.g. Next.js `output: 'standalone'` (changes what Vercel's own build pipeline expects), removing/altering middleware Vercel still relies on, changing a runtime Vercel's build targets |
+
+Never assume `output: 'standalone'`, middleware changes, or runtime changes are harmless to a live Vercel deployment by default — verify current Vercel behavior for that specific change when possible; otherwise treat it as "uncertain" rather than "compatible." Any change classified **uncertain** or **incompatible** requires a migration strategy — e.g. a feature flag/env-gated code path, a separate branch Vercel doesn't auto-build from, or scheduling the change for immediately before cutover — before it is merged or deployed to the branch Vercel builds. This check is scoped to code changes Phase 4 is about to make; it does not reopen or re-litigate Phase 1–3 findings already classified "Works unchanged."
+
+**Regression protection:** `tests/fixtures/vercel-migration/EXPECTED.md` requires this classification to be shown for `apps/web/next.config.js`'s `output` setting and `apps/web/middleware.ts` specifically, since Kamal's standalone-server target plausibly wants `output: 'standalone'` while `apps/web` is still Vercel's live deployment target.
 
 ## Phase 5: Validate the Kamal target independently
 
@@ -136,6 +183,15 @@ After a successful cutover and verification, keep the Vercel deployment and the 
 ## Phase 12: Decommission (separate, later, explicit approval)
 
 Removing or disabling the old Vercel deployment/configuration is **never** implied by a successful cutover, a passed verification, or the end of the rollback window. It requires its own distinct, explicit user request, made separately from cutover approval. Until that request happens, leave Vercel's configuration and project exactly as they are.
+
+## Scope discipline: unrelated cleanup/hardening is surfaced, not applied
+
+Migration work routinely surfaces unrelated issues in the unit being migrated (an insecure Dockerfile `USER root`, an outdated dependency, a missing `.dockerignore`). Fixing these is not this pattern's job, and bundling them into migration changes makes the Vercel-live compatibility check (4b) and the migration diff harder to reason about. Only make a change outside of what Phase 1–4 above actually require when:
+
+- it's required for deployment correctness (the recipe/Dockerfile won't run or pass its health check without it), or
+- the user explicitly approved it as a separate, named change.
+
+Otherwise, note the finding in the migration summary and leave it alone. This mirrors a general Skill rule, not a migration-specific one — see SKILL.md Step 5 item 9 ("Scope discipline").
 
 ## What this pattern does not own
 

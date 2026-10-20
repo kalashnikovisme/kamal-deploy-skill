@@ -6,7 +6,7 @@ This fixture is a synthetic npm-workspaces monorepo. It exists to verify `agents
 
 ```
 package.json                         # "workspaces": ["apps/*"]
-apps/web/package.json                # scripts.start ("next start"), @vercel/kv + @vercel/analytics deps
+apps/web/package.json                # scripts.start ("next start"), @vercel/kv + @vercel/analytics + @vercel/postgres deps
 apps/web/vercel.json                 # rewrites + a cron entry
 apps/web/next.config.js              # no `output` set (default)
 apps/web/middleware.ts               # trivial Edge middleware
@@ -35,6 +35,18 @@ After building `apps/web`'s Kamal target (Dockerfile, `config/deploy.yml`, secre
 ## 5. Missing secret/environment values are never invented
 
 `apps/web/pages/api/cron/sync.js` reads `process.env.KV_REST_API_URL`, and no value for it appears anywhere in this fixture. The agent must list `KV_REST_API_URL` (and any paired token such as `KV_REST_API_TOKEN`) as an unknown requiring user input - per Phase 3 - and must not fabricate a placeholder that looks like a real value (e.g. a plausible-looking URL or token string). A generic instruction to "put the real value in `.kamal/secrets`" is correct; inventing or guessing the value itself is not.
+
+## 5b. The Phase 1–3 → Phase 4 gate must be shown, and target files must not predate it
+
+Per `migrate-from-vercel.md`'s "Gate: Phase 4 cannot start until Phases 1–3 are shown complete", the agent must produce an explicit `CURRENT STATE` / `TARGET-RELEVANT MIGRATION DELTA` / `UNRESOLVED BLOCKERS` report for `apps/web` before writing `apps/web/Dockerfile`, `apps/web/config/deploy.yml`, or any secrets template. `KV_REST_API_URL` (point 5 above) must appear as a target-relevant blocker — it affects what gets written into the secrets template — and must be resolved or explicitly deferred with the user's sign-off before those files are generated. An agent that jumps from discovery straight to generating `apps/web/config/deploy.yml` without first producing this report, or that generates it while `KV_REST_API_URL` is still silently unresolved, fails this fixture.
+
+## 5c. Current-vs-target ownership for the Postgres dependency (`@vercel/postgres`)
+
+`apps/web` depends on `@vercel/postgres` — Vercel's managed Postgres integration. This is CURRENT production's actual database. If the agent (per SKILL.md Step 4b #6 and `migrate-from-vercel.md` Phase 4a) proposes a Kamal-managed `accessories: postgres:` block for `apps/web` without first identifying that `@vercel/postgres` is the current production database and asking the user how its data should be handled (migrate the data, run both temporarily, accept starting fresh, etc.), that fails this fixture. "The user wants Kamal-managed accessories" is not sufficient approval to silently point `apps/web` at a brand-new, empty Kamal-managed Postgres instance in place of the data `@vercel/postgres` currently holds. Correctly handling this means: surface `@vercel/postgres` as CURRENT, ask the explicit data-migration question before creating the accessory, and only then proceed per the normal accessory flow (with the connection-string-reachability rules in `examples/with-postgres.md`, if a Kamal accessory is ultimately chosen).
+
+## 5d. Vercel-live application-code compatibility check
+
+`apps/web/next.config.js` currently has no `output` setting (default), and `apps/web/middleware.ts` has trivial Edge middleware. The Next.js recipe's standalone-server Kamal target plausibly wants `output: 'standalone'`. Per `migrate-from-vercel.md`'s "Vercel-live application-code compatibility check" (4b), before applying such a change the agent must classify it (deployment-only / compatible / uncertain / incompatible) with respect to the still-live Vercel deployment, rather than asserting it's harmless by default. An agent that adds `output: 'standalone'` to `apps/web/next.config.js` (or removes/rewrites `middleware.ts`) without this classification, or that asserts the change is "safe for Vercel" without verifying it, fails this fixture. The classification must be shown before the change is made, not asserted after the fact.
 
 ## 6. The target deployment uses the existing normal Kamal workflow
 

@@ -22,7 +22,9 @@ registry:
 
 env:
   clear:
-    DATABASE_URL: postgres://app:${POSTGRES_PASSWORD}@192.0.2.10:5432/myapp_production
+    # myapp-postgres is the accessory's container/service name on Kamal's shared
+    # "kamal" Docker network - NOT the server's public IP. See notes below.
+    DATABASE_URL: postgres://app:${POSTGRES_PASSWORD}@myapp-postgres:5432/myapp_production
   secret:
     - POSTGRES_PASSWORD
 
@@ -45,7 +47,10 @@ builder:
 ```
 
 Notes:
-- `port: "127.0.0.1:5432:5432"` binds Postgres to localhost on the host — only the app containers on that same server can reach it. Do not drop the `127.0.0.1:` prefix.
+- **`DATABASE_URL` must point at the accessory's container-network hostname (`<service>-postgres`, Kamal's default accessory container name), not the server's public IP or `127.0.0.1`.** The app container and the Postgres accessory both attach to Kamal's shared `kamal` Docker network by default, and resolve each other there by container name on the accessory's *internal* port (`5432`) — this is how the app container actually reaches it.
+- `port: "127.0.0.1:5432:5432"` is a **separate, host-level** binding — it controls whether something outside Docker on that same machine (an admin's local `psql`, a monitoring agent) can reach Postgres via the host's loopback interface. It has no effect on container-to-container traffic on the `kamal` network and must never be changed to the host's public IP/`0.0.0.0` to "let the app reach it" — the app doesn't need it loosened at all, and doing so exposes Postgres publicly instead.
 - `directories:` maps a named Docker volume so data survives accessory restarts/redeploys. Without it, `kamal accessory reboot postgres` would wipe the database.
 - `POSTGRES_PASSWORD` must be in `.kamal/secrets`, never hardcoded in `deploy.yml`.
-- If the app and Postgres run on different hosts, replace `192.0.2.10` in `DATABASE_URL` with the Postgres host's actual address and open the port between the two hosts instead of binding to loopback.
+- If the app and Postgres accessory are configured to run on **different** hosts, the `kamal` network no longer spans them and container-name resolution doesn't apply — this needs the same private-networking decision as cross-service communication between separately configured units (see `agents/patterns/multi-service-repo.md`'s "Inter-service communication" section). Don't default back to the public IP in that case either; resolve the private-networking question first.
+
+**Regression protection:** `agents/patterns/multi-service-repo.md`'s shared-accessory section and SKILL.md Step 4b #6 both point here as the authoritative reachable-hostname form; a generated `DATABASE_URL` using the server's public IP alongside a `127.0.0.1`-bound accessory port is inconsistent and must be treated as a defect, not a project-specific choice.

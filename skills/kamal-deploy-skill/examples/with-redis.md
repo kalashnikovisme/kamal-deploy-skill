@@ -22,7 +22,9 @@ registry:
 
 env:
   clear:
-    REDIS_URL: redis://192.0.2.10:6379/0
+    # myapp-redis is the accessory's container/service name on Kamal's shared
+    # "kamal" Docker network - NOT the server's public IP. See notes below.
+    REDIS_URL: redis://myapp-redis:6379/0
 
 accessories:
   redis:
@@ -37,6 +39,8 @@ builder:
 ```
 
 Notes:
+- **`REDIS_URL` must point at the accessory's container-network hostname (`<service>-redis`), not the server's public IP or `127.0.0.1`.** The app container and the Redis accessory share Kamal's `kamal` Docker network by default and resolve each other there by container name on Redis's internal port (`6379`).
+- `port: "127.0.0.1:6379:6379"` is a separate, host-level binding for something outside Docker (e.g. a local `redis-cli` on the host) — it doesn't affect container-to-container traffic and must not be loosened to a public interface to make the app reachable; the app never needs it.
 - `directories:` persists Redis's data across restarts. Omit it only if Redis is used purely as an ephemeral cache where losing data on restart is acceptable.
-- As with Postgres, `port: "127.0.0.1:6379:6379"` keeps Redis unreachable from outside the host. Never remove the `127.0.0.1:` prefix on a production accessory.
 - If a background worker role (`examples/web-with-worker.md`) also needs `REDIS_URL`, add it to that role's own `env` block too — `env` is not automatically shared across roles unless defined at the top level as shown here.
+- If the app and Redis accessory run on **different** hosts, see `with-postgres.md`'s note on the same issue — the `kamal` network doesn't span hosts, and this becomes the same private-networking decision as `agents/patterns/multi-service-repo.md`'s "Inter-service communication" section, not a reason to fall back to the public IP.
