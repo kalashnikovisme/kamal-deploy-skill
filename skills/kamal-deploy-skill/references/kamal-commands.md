@@ -78,7 +78,7 @@ These operate from `admin/`, strip destination flags before invoking Kamal, and 
 
 ## Flag Passthrough Contract
 
-Any generated or repo-provided wrapper MUST forward Kamal's own flags to the underlying `kamal` invocation unmodified - most importantly `-q`/`--quiet`, which mutes per-step output until the command finishes or errors (https://kamal-deploy.org/docs/commands/deploy/). A wrapper that consumes-and-drops unrecognized flags, pipes/captures kamal's output, or chains a log tail after the deploy call will silently defeat `--quiet` even though the flag was accepted without error. See SKILL.md Step 4.5 for the full rule set and a minimal `bin/deploy` template that satisfies it.
+Any generated or repo-provided wrapper MUST forward Kamal's own flags to the underlying `kamal` invocation unmodified - most importantly `-q`/`--quiet`, which mutes per-step output until the command finishes or errors (https://kamal-deploy.org/docs/commands/deploy/), and `-c`/`--config-file`, which a multi-unit repo's wrappers use to target a specific unit's `config/deploy.<unit>.yml` (see `agents/patterns/multi-service-repo.md`; this flag is real in `basecamp/kamal`'s source but undocumented on the public docs site). A wrapper that consumes-and-drops unrecognized flags, pipes/captures kamal's output, or chains a log tail after the deploy call will silently defeat `--quiet` even though the flag was accepted without error. See SKILL.md Step 5.5 for the full rule set and a minimal `bin/deploy` template that satisfies it.
 
 ```bash
 bin/deploy -q

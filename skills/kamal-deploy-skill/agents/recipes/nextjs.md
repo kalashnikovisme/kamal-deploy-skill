@@ -2,6 +2,8 @@
 
 This recipe covers deployment of Next.js as a long-running server (server-side rendering, API routes, App Router) via Kamal, including an optional background worker role. It does **not** apply to static exports (`output: 'export'`) — those are served from a CDN, not Kamal.
 
+All paths below are relative to the current Deployable Unit's own root (the repo root if there is only one unit — see `agents/patterns/deployable-units.md`).
+
 ## 1. Inspect the Project
 
 Read `package.json` to determine:
@@ -157,7 +159,7 @@ The same Docker image is used for both the web server and the worker — Kamal o
 
 ## 6. Create config/deploy.yml
 
-Substitute `<APP_NAME>`, `<REGISTRY_USER>`, `<SERVER_IP>`, and `<DOMAIN>` with values gathered in SKILL.md Step 3.
+Substitute `<APP_NAME>`, `<REGISTRY_USER>`, `<SERVER_IP>`, and `<DOMAIN>` with values gathered in SKILL.md Step 4.
 
 ### Web + Worker (standard)
 
@@ -303,7 +305,7 @@ Add to `.gitignore`:
 - **Scaling workers**: to run the worker on a second server, add its IP to the `workers.hosts` list.
 - **Node version**: match the base image (`node:20-alpine`) to `.nvmrc` or `engines.node` in `package.json`.
 - **next/image**: if using external image domains, configure `images.remotePatterns` in `next.config.js`.
-- **Database migrations**: Next.js has no built-in migration runner. Add a `.kamal/hooks/pre-deploy` script if you want migrations to run automatically:
+- **Database migrations**: Next.js has no built-in migration runner. See `agents/patterns/database-migrations.md` for the pre-deploy-hook-vs-inline tradeoff. Add a `.kamal/hooks/pre-deploy` script if you want migrations to run automatically:
   ```bash
   #!/bin/bash
   set -e

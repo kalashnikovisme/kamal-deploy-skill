@@ -1,0 +1,6 @@
+{
+  "framework": "nextjs",
+  "env": {
+    "NEXT_PUBLIC_API_URL": "https://api.fixture.example.com"
+  }
+}

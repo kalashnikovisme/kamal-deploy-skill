@@ -1,8 +1,8 @@
 # Terraform Infrastructure Recipe
 
-This recipe provisions the infrastructure Kamal needs to deploy to. It is invoked from SKILL.md Step 3a when the user does not yet have a server, a configured DNS record, or both.
+This recipe provisions the infrastructure Kamal needs to deploy to. It is invoked from SKILL.md Step 4a when the user does not yet have a server, a configured DNS record, or both.
 
-After this recipe completes, **return to SKILL.md Step 3b** with a server IP and domain in hand.
+After this recipe completes, **return to SKILL.md Step 4b** with a server IP and domain in hand.
 
 ---
 
@@ -30,7 +30,7 @@ Ask these two questions **separately**, one at a time.
 
 | Has server? | Has DNS? | What to do |
 |---|---|---|
-| Yes | Yes | No Terraform needed. Collect IP + domain, return to SKILL.md Step 3b. |
+| Yes | Yes | No Terraform needed. Collect IP + domain, return to SKILL.md Step 4b. |
 | Yes | No | **DNS-only**: provision only the A record pointing to the existing server. |
 | No | Yes | **Server-only**: provision only the server and firewall; user adds the A record manually after. |
 | No | No | **Full**: provision server, firewall, and DNS A record. |
@@ -812,7 +812,7 @@ Before returning to the main Kamal flow, instruct the user to:
    ```
    If refused, wait 30–60 s and retry (cloud-init may still be running).
 
-Once SSH works, return to **SKILL.md Step 3b** with the confirmed `<SERVER_IP>` and `<DOMAIN>`.
+Once SSH works, return to **SKILL.md Step 4b** with the confirmed `<SERVER_IP>` and `<DOMAIN>`.
 
 ---
 

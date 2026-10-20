@@ -2,6 +2,8 @@
 
 This recipe covers deployment of Go web applications via Kamal. Applies to any Go HTTP server (standard `net/http`, Gin, Echo, Chi, Fiber, etc.).
 
+All paths below are relative to the current Deployable Unit's own root (the repo root if there is only one unit — see `agents/patterns/deployable-units.md`).
+
 ## 1. Inspect the Project
 
 Read `go.mod` to determine:
@@ -163,7 +165,7 @@ Add to `.gitignore`:
 
 ## 7. Database Migrations
 
-Go does not have a built-in migration runner. If using migrations (e.g., `golang-migrate`, `goose`, `atlas`), add a deploy hook:
+See `agents/patterns/database-migrations.md` for the pre-deploy-hook-vs-inline tradeoff and fail-fast expectations. Go does not have a built-in migration runner. If using migrations (e.g., `golang-migrate`, `goose`, `atlas`), add a deploy hook:
 
 Create `.kamal/hooks/pre-deploy`:
 

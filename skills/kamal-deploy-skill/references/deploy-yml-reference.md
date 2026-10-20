@@ -2,6 +2,8 @@
 
 Configuration is read from `config/deploy.yml`. Destination-specific overrides are merged from `config/deploy.<destination>.yml`.
 
+**Multi-unit repos** (see `agents/patterns/multi-service-repo.md`): Kamal's `-c`/`--config-file` CLI option (verified in `basecamp/kamal`'s `lib/kamal/cli/base.rb`; not documented on the public docs site) points `kamal` at a different base config path per invocation, e.g. `kamal deploy -c config/deploy.api.yml`. Each unit's config file must also set its own `secrets_path`/`hooks_path` (default to plain `.kamal/secrets`/`.kamal/hooks` resolved from `Dir.pwd`, **not** relative to `-c`'s path) to avoid multiple units colliding on the same secrets/hooks files. A single-unit repo keeps the plain `config/deploy.yml` path and never needs `-c`.
+
 ## Required Settings
 
 ```yaml

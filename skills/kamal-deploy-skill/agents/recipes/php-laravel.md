@@ -2,6 +2,8 @@
 
 This recipe covers deployment of PHP web applications via Kamal. Applies to: Laravel, Symfony, and generic PHP applications.
 
+All paths below are relative to the current Deployable Unit's own root (the repo root if there is only one unit — see `agents/patterns/deployable-units.md`).
+
 ## 1. Inspect the Project
 
 Read `composer.json` to determine:
@@ -242,7 +244,7 @@ Add to `.gitignore`:
 
 ## 7. Database Migrations
 
-Create `.kamal/hooks/pre-deploy`:
+See `agents/patterns/database-migrations.md` for the pre-deploy-hook-vs-inline tradeoff and fail-fast expectations. Create `.kamal/hooks/pre-deploy`:
 
 ```bash
 #!/bin/bash

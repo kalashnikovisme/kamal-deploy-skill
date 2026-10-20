@@ -4,22 +4,28 @@ A Claude Code / Codex skill for configuring [Kamal](https://kamal-deploy.org/) d
 
 ## Base features
 
-1. Configure Kamal deployment
-2. Configure Terraform / infrastructure provisioning
-3. Validate Dockerfiles
-4. Document repository-specific wrapper workflows when present
+1. Discover the repository's Deployable Units and determine which ones Kamal should manage
+2. Configure Kamal deployment, independently per managed unit
+3. Configure Terraform / infrastructure provisioning
+4. Validate Dockerfiles
+5. Document repository-specific wrapper workflows when present
 
 ## What it does
 
-- Detects if the project is Ruby on Rails → redirects to tramway-skill
-- Detects the technology stack automatically and loads the matching recipe
+- Discovers every independently-deployable application/service in the repo first, instead of assuming one repo = one app. A root workspace/monorepo tool (npm/pnpm/yarn workspaces, Nx, Turborepo, Cargo workspaces) does not by itself imply either one unit or many — deployability is judged per candidate, not from directory count or tooling presence
+- Asks which discovered units Kamal should manage; units left out (e.g. already deployed elsewhere, like a frontend on Vercel) are documented but otherwise untouched
+- Detects if a unit is Ruby on Rails → redirects to tramway-skill for that unit
+- Detects each managed unit's technology stack automatically and loads the matching recipe
 - Supports Node.js / Next.js, Python, Go, PHP / Laravel, Java / Spring Boot, .NET, Elixir / Phoenix, Terraform, and unknown-stack fallback
-- Generates a `Dockerfile`, `config/deploy.yml`, and `.kamal/secrets` template suited to the stack
+- Generates a `Dockerfile`, `config/deploy.yml`, and `.kamal/secrets` template suited to each unit's stack
+- When more than one unit is Kamal-managed, generates per-unit `config/deploy.<unit>.yml` files invoked via Kamal's `-c`/`--config-file` flag, with distinct `secrets_path`/`hooks_path` per unit to avoid collisions
+- Applies cross-cutting patterns independently per unit as needed: a secondary runtime invoked as a subprocess, large build-time assets baked into the image, and database migration mechanics (pre-deploy hook vs. inline-at-boot)
+- Checks an existing Dockerfile for Kamal-readiness (single identifiable port, foreground process, health-checkable path) before reusing it
 - Configures accessories (PostgreSQL, Redis) as needed
 - Creates multi-destination configs (staging + production)
 - Prefers repository `bin/` wrappers over raw `kamal` commands when the project ships an operational layer like the Arie wrappers
-- Generates a minimal `bin/deploy` wrapper when the project has no Kamal `bin/` layer yet, guaranteed to forward `-q`/`--quiet` and all other Kamal flags unmodified
-- Updates the project's README with deployment operations documentation
+- Generates a minimal `bin/deploy` wrapper (or per-unit wrappers, for multiple managed units) when the project has no Kamal `bin/` layer yet, guaranteed to forward `-q`/`--quiet`, `-c`/`--config-file`, and all other Kamal flags unmodified
+- Updates the project's README with deployment operations documentation, including a Deployable Units table when more than one unit was discovered
 
 ## Supported stacks
 
@@ -143,8 +149,8 @@ claude plugin validate . --strict
 ### Adding a new recipe
 
 1. Create `skills/kamal-deploy-skill/agents/recipes/<stack>.md`
-2. Add the detection signal to the stack detection table in `SKILL.md` (Step 1)
-3. Add the recipe to the load table in `SKILL.md` (Step 2) with Claude Code file paths
+2. Add the detection signal to the stack detection table in `SKILL.md` (Step 2)
+3. Add the recipe to the load table in `SKILL.md` (Step 3) with Claude Code file paths
 4. Bump `MINOR` in `VERSION`
 5. Add a CHANGELOG entry
 6. Sync locally to test

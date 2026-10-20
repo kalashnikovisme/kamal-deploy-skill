@@ -2,6 +2,8 @@
 
 This recipe is used when the technology stack cannot be automatically detected from the project files. It fetches the latest Kamal documentation and guides the user through a custom deployment configuration.
 
+All paths below are relative to the current Deployable Unit's own root (the repo root if there is only one unit — see `agents/patterns/deployable-units.md`).
+
 ## Mandatory First Step: Fetch Latest Documentation
 
 **BEFORE answering ANY Kamal question or generating ANY configuration**, fetch current documentation. Do not rely on training data for Kamal specifics — always fetch fresh docs.

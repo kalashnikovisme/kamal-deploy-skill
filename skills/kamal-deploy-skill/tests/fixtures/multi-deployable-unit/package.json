@@ -1,0 +1,8 @@
+{
+  "name": "multi-deployable-unit-fixture",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}

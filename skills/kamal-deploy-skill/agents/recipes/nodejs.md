@@ -2,6 +2,8 @@
 
 This recipe covers deployment of Node.js applications via Kamal. Applies to: Next.js, NestJS, Express, Fastify, Nuxt, Remix, and any other Node.js server.
 
+All paths below are relative to the current Deployable Unit's own root (the repo root if there is only one unit — see `agents/patterns/deployable-units.md`).
+
 ## 1. Inspect the Project
 
 Read `package.json` to determine:
@@ -154,7 +156,7 @@ Adapt `CMD` to match the actual entry point from `scripts.start`.
 
 ## 5. Create config/deploy.yml
 
-Substitute `<APP_NAME>`, `<REGISTRY_USER>`, `<SERVER_IP>`, `<DOMAIN>`, and `<PORT>` with actual values gathered in Step 3 of SKILL.md.
+Substitute `<APP_NAME>`, `<REGISTRY_USER>`, `<SERVER_IP>`, `<DOMAIN>`, and `<PORT>` with actual values gathered in Step 4 of SKILL.md.
 
 ```yaml
 service: <APP_NAME>
@@ -264,7 +266,19 @@ Add to `.gitignore`:
 .kamal/secrets.*
 ```
 
-## 7. Stack-Specific Caveats
+## 7. Database Migrations
+
+If the project uses an ORM/migration tool (Prisma, TypeORM, Sequelize, Drizzle, Knex), see `agents/patterns/database-migrations.md` for the pre-deploy-hook-vs-inline-at-boot tradeoff and fail-fast expectations. Stack-specific commands:
+
+- **Prisma**: `.kamal/hooks/pre-deploy` running `kamal app exec --reuse "npx prisma migrate deploy"`
+- **TypeORM**: `kamal app exec --reuse "npm run typeorm migration:run"` (adjust to the project's actual script name)
+- **Sequelize**: `kamal app exec --reuse "npx sequelize-cli db:migrate"`
+- **Drizzle**: `kamal app exec --reuse "npx drizzle-kit migrate"`
+- **Knex**: `kamal app exec --reuse "npx knex migrate:latest"`
+
+Confirm the chosen migration tool's CLI is present in the **runner** stage of the Dockerfile above (a tool only installed as a dev dependency and pruned via `npm ci --omit=dev` will not be available at deploy time — either keep it as a runtime dependency or run migrations from a stage that still has dev dependencies installed).
+
+## 8. Stack-Specific Caveats
 
 - **Next.js**: `output: 'standalone'` is required for the Dockerfile above. Without it, the image will be very large.
 - **Next.js image optimization**: If using `next/image` with external domains, configure `images.remotePatterns` in `next.config.js`.

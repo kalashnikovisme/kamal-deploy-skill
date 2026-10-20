@@ -2,6 +2,8 @@
 
 This recipe covers deployment of Python web applications via Kamal. Applies to: Django, FastAPI, Flask, and any WSGI/ASGI Python server.
 
+All paths below are relative to the current Deployable Unit's own root (the repo root if there is only one unit — see `agents/patterns/deployable-units.md`).
+
 ## 1. Inspect the Project
 
 Read `pyproject.toml`, `requirements.txt`, or `Pipfile` to determine:
@@ -244,6 +246,8 @@ Add to `.gitignore`:
 ```
 
 ## 7. Django-Specific: Static Files and Migrations
+
+See `agents/patterns/database-migrations.md` for the pre-deploy-hook-vs-inline tradeoff and fail-fast expectations that apply beyond this stack-specific command.
 
 **Static files**: Kamal does not run `collectstatic` automatically. Add a deploy hook to run it, or configure static files to be served from a CDN/object storage.
 

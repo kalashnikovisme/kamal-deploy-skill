@@ -1,0 +1,12 @@
+{
+  "name": "@fixture/api",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "@fixture/shared-utils": "workspace:*",
+    "express": "^4.19.0"
+  }
+}

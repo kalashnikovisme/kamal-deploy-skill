@@ -2,6 +2,8 @@
 
 This recipe covers deployment of Java applications via Kamal. Applies to: Spring Boot (Maven or Gradle), Quarkus, Micronaut, and generic Java web applications.
 
+All paths below are relative to the current Deployable Unit's own root (the repo root if there is only one unit — see `agents/patterns/deployable-units.md`).
+
 ## 1. Inspect the Project
 
 Detect build tool and framework:
@@ -216,7 +218,7 @@ Add to `.gitignore`:
 
 ## 7. Database Migrations
 
-Spring Boot with Flyway or Liquibase runs migrations automatically on startup if configured. Verify:
+Spring Boot with Flyway or Liquibase runs migrations automatically on startup if configured — this is the inline-at-boot approach described in `agents/patterns/database-migrations.md`; if the service runs multiple replicas, see that file for why a pre-deploy hook may be preferable instead. Verify:
 
 **Flyway** (`application.properties`):
 
