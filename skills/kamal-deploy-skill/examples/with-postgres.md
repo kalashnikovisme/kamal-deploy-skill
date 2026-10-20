@@ -1,6 +1,6 @@
 # Example: Web + PostgreSQL Accessory
 
-Kamal manages the database as an "accessory" — a long-running container Kamal deploys and restarts, but doesn't version/roll like the app image.
+Kamal manages the database as an "accessory" — a long-running container Kamal deploys and restarts, but doesn't version/roll like the app image. This example demonstrates the Kamal-managed path once that ownership decision has been made (SKILL.md Step 4b #6) — depending on PostgreSQL does not by itself mean Kamal should provision it; an app connecting to an existing/external PostgreSQL instance instead just needs `DATABASE_URL` as a secret, with no `accessories:` block at all.
 
 ```yaml
 service: myapp

@@ -76,7 +76,7 @@ This table is the representation of "a Kamal-managed subset" — it must always 
 
 ## Shared accessories (Postgres/Redis) across units
 
-If two Kamal-managed units in the same repo both need the same accessory (e.g. both `api` and `worker` need Postgres), do not define the accessory twice. Define it once, in whichever unit's `deploy.yml` is deployed first / considered primary, and point the other unit's `secret`/`clear` env at the same connection details. Note this explicitly in the documentation table above so it's clear which unit "owns" the accessory's lifecycle (`kamal accessory boot/reboot/remove` should be run against that unit's config file only).
+This section assumes the ownership question (SKILL.md Step 4b #6) has already resolved to "Kamal-managed accessory" for the dependency in question - both units merely depending on Postgres is not by itself a reason to create one. Once that's established: if two Kamal-managed units in the same repo both depend on the same Kamal-managed accessory (e.g. both `api` and `worker` use Postgres), do not define the accessory twice. Define it once, in whichever unit's `deploy.yml` is deployed first / considered primary, and point the other unit's `secret`/`clear` env at the same connection details. Note this explicitly in the documentation table above so it's clear which unit "owns" the accessory's lifecycle (`kamal accessory boot/reboot/remove` should be run against that unit's config file only). If instead the dependency is owned externally, there's nothing to share here - each unit just points at the same external connection string.
 
 ## When NOT to use this pattern
 

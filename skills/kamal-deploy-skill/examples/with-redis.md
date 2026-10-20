@@ -1,6 +1,6 @@
 # Example: Web + Redis Accessory
 
-Redis as a Kamal-managed accessory, typically used for caching, job queues (Sidekiq, BullMQ, Celery), or session storage.
+Redis as a Kamal-managed accessory, typically used for caching, job queues (Sidekiq, BullMQ, Celery), or session storage. This example demonstrates the Kamal-managed path once that ownership decision has been made (SKILL.md Step 4b #6) — depending on Redis does not by itself mean Kamal should provision it; an app connecting to an existing/external Redis instance instead just needs `REDIS_URL` as a secret, with no `accessories:` block at all.
 
 ```yaml
 service: myapp

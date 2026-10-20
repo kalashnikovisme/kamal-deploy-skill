@@ -21,7 +21,7 @@ A Claude Code / Codex skill for configuring [Kamal](https://kamal-deploy.org/) d
 - When more than one unit is Kamal-managed, generates per-unit `config/deploy.<unit>.yml` files invoked via Kamal's `-c`/`--config-file` flag, with distinct `secrets_path`/`hooks_path` per unit to avoid collisions
 - Applies cross-cutting patterns independently per unit as needed: a secondary runtime invoked as a subprocess, large build-time assets baked into the image, and database migration mechanics (pre-deploy hook vs. inline-at-boot)
 - Checks an existing Dockerfile for Kamal-readiness (single identifiable port, foreground process, health-checkable path) before reusing it
-- Configures accessories (PostgreSQL, Redis) as needed
+- Configures accessories (PostgreSQL, Redis) only once the user (or clear repo evidence) confirms Kamal should own that dependency — a detected dependency on its own never implies Kamal should provision it; an externally-owned dependency gets its connection secret instead, with no accessory block
 - Creates multi-destination configs (staging + production)
 - Prefers repository `bin/` wrappers over raw `kamal` commands when the project ships an operational layer like the Arie wrappers
 - Generates a minimal `bin/deploy` wrapper (or per-unit wrappers, for multiple managed units) when the project has no Kamal `bin/` layer yet, guaranteed to forward `-q`/`--quiet`, `-c`/`--config-file`, and all other Kamal flags unmodified

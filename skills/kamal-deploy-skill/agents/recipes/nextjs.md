@@ -200,7 +200,9 @@ env:
 builder:
   arch: amd64
 
-# Uncomment and configure as needed:
+# Uncomment only if PostgreSQL/Redis should be Kamal-managed accessories (SKILL.md Step 4b #6 -
+# depending on a service and owning its provisioning are separate decisions; if it's an
+# existing/external service, leave this commented and just add its connection secret above):
 # accessories:
 #   postgres:
 #     image: postgres:16

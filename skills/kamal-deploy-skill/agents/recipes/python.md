@@ -196,7 +196,9 @@ env:
 builder:
   arch: amd64
 
-# Uncomment if using PostgreSQL:
+# Uncomment if PostgreSQL should be a Kamal-managed accessory (SKILL.md Step 4b #6 - depending on
+# PostgreSQL and owning its provisioning are separate decisions; leave commented and add
+# DATABASE_URL as a secret instead if it's an existing/external database):
 # accessories:
 #   postgres:
 #     image: postgres:16
@@ -211,7 +213,7 @@ builder:
 #     directories:
 #       - postgres-data:/var/lib/postgresql/data
 #
-# Uncomment if using Redis:
+# Uncomment if Redis should be a Kamal-managed accessory (same ownership decision as above):
 #   redis:
 #     image: redis:7-alpine
 #     host: <SERVER_IP>

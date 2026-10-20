@@ -193,7 +193,12 @@ Collect the following (ask only what is not already determinable from the projec
 
 4. **Service name** - defaults to the unit's directory name if not specified (repo name for a single-unit repo)
 5. **Domain / hostname** - confirmed in 4a, or ask if not yet known; for multiple units sharing one server, ask whether each gets its own subdomain
-6. **Accessories needed** - PostgreSQL? Redis? Both? Neither? (pre-fill based on stack detection, per unit)
+6. **Database/cache dependencies and who owns them** - stack detection (Step 2) may show the unit *depends on* PostgreSQL/Redis/etc. (e.g. a `pg`/`ioredis` package, a `psycopg2`/`redis` import, a configured ORM adapter). That only answers whether the app needs the service - it never by itself answers who provisions/owns it. Treat these as two separate questions:
+   - **A. Does the unit depend on this service?** - established by detection above.
+   - **B. Who owns/provisions it?** - a Kamal accessory, an existing managed database/cache, an external provider, infra provisioned separately, or another platform's add-on.
+   For each detected dependency, check the repo for ownership evidence first (a `DATABASE_URL`/`REDIS_URL` already pointing at a non-localhost managed host, Terraform/infra config provisioning it elsewhere, platform config like `fly.toml`/`render.yaml` attaching a managed instance). If that evidence clearly establishes ownership, state it to the user and move on - don't ask. Otherwise ask explicitly, per dependency:
+   > "This project depends on \<PostgreSQL/Redis\>. Should Kamal provision and manage it as an accessory, or does it already connect to an existing/external \<service\>?"
+   Only add an `accessories:` block (see `examples/with-postgres.md` / `examples/with-redis.md`) for a dependency the user confirms - or clear repo evidence establishes - should be Kamal-managed. For an externally-owned dependency, add its connection secret to `.kamal/secrets` and skip the accessory block entirely. Never default to creating an accessory merely because the dependency was detected.
 7. **Destinations** - does the user want separate staging and production configs?
 
 Do not ask for secrets values in chat. Instruct the user to place secrets in `.kamal/secrets` and `.kamal/secrets-common` as instructed by the recipe (or the unit-suffixed equivalents from `agents/patterns/multi-service-repo.md` when there are multiple Kamal-managed units). If the target repo provides wrapper-managed staging secrets, treat those values as generated or managed by the wrapper flow and do not ask for them ad hoc.

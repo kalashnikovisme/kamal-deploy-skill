@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0 — 2026-10-20
+
+Patch discovered by the v0.11.0 acceptance test.
+
+- Fix: dependency detection (e.g. a `pg`/`ioredis` package, a `psycopg2`/`redis` import) no longer implies Kamal should provision that dependency as an accessory. SKILL.md Step 4b #6 now splits this into two explicit questions - does the unit depend on the service, and separately, who owns/provisions it (Kamal accessory, existing managed service, external provider, or infra provisioned elsewhere) - and asks the user whenever repo evidence doesn't already establish ownership. Updated the stack recipes' commented-out accessory blocks (`nodejs.md`, `nextjs.md`, `python.md`, `go.md`), `unknown-stack.md`'s dependency-gathering step, `agents/patterns/multi-service-repo.md`'s shared-accessory section, and `examples/with-postgres.md`/`with-redis.md` to make clear the accessory path is something the user (or clear repo evidence) confirms, never a default triggered by detecting the dependency.
+- Clarify in `agents/patterns/deployable-units.md` that Deployable Unit status is an architectural/deployment-lifecycle classification, decided independently of whether a candidate already has a `Dockerfile`, Kamal config, health endpoint, or other Kamal-readiness artifact - those are a later concern (Step 5). Added a regression case to `tests/fixtures/multi-deployable-unit/EXPECTED.md` protecting against describing the Dockerfile-less `apps/web` candidate as only "conditionally" a Deployable Unit.
+
 ## 0.11.0 — 2026-10-20
 
 - Add the **Deployable Unit** abstraction: the Skill no longer assumes one repository = one application. New Step 1 (`agents/patterns/deployable-units.md`) discovers every independently-deployable candidate in a repo and asks which ones Kamal should manage, before any stack detection happens. A root workspace/monorepo build tool (npm/pnpm/yarn workspaces, Nx, Turborepo, Cargo workspaces) is explicitly **not** treated as evidence of unit count either way - deployability is judged per candidate (own runnable process/port/image vs. a purely-imported library), not from directory count or tooling presence.

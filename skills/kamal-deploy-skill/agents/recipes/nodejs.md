@@ -213,7 +213,7 @@ builder:
 #       - redis-data:/data
 ```
 
-If the user confirmed they need PostgreSQL and/or Redis, uncomment and populate the relevant accessory blocks.
+If the user confirmed PostgreSQL and/or Redis should be Kamal-managed accessories (SKILL.md Step 4b #6 - a separate decision from merely depending on them), uncomment and populate the relevant accessory blocks. If a dependency is owned externally instead, skip its accessory block and just add its connection secret below.
 
 If staging and production destinations are requested, create `config/deploy.staging.yml`:
 

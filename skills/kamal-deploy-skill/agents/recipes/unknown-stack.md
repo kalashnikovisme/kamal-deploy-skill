@@ -38,7 +38,7 @@ Once the user identifies the stack, collect:
 2. How to run the application in production (start command)
 3. What port the server listens on
 4. Whether there is an existing health check endpoint (path) — if not, instruct the user to add one
-5. What dependencies are needed (database, cache, etc.)
+5. What dependencies the app has (database, cache, etc.), and separately, who owns/provisions each one - a Kamal accessory, an existing managed service, an external provider, or infra provisioned elsewhere (see SKILL.md Step 4b #6; don't assume a detected dependency should become an accessory)
 6. What the Docker base image should be (language-specific official image or Alpine variant)
 
 ## Dockerfile Strategy
@@ -117,7 +117,7 @@ builder:
   arch: amd64
 ```
 
-Add accessories, volumes, and hooks as needed based on the fetched documentation and user requirements.
+Add accessories, volumes, and hooks only for dependencies the user confirmed should be Kamal-managed (step 5 above), based on the fetched documentation. For externally-owned dependencies, add the connection secret instead and skip the accessory.
 
 ## .kamal/secrets Template
 

@@ -29,6 +29,10 @@ Per-candidate independent-deployability judgment:
 | `apps/web` | Yes — `scripts.start` runs `next start` | **Deployable Unit** | Has its own runnable process, but also carries `vercel.json` — existing-hosting evidence that must be surfaced during selection, not used to disqualify it from being a unit in the first place |
 | `packages/shared-utils` | No — no `scripts.start`, no port, `main` points at a plain export, only consumed via `workspace:*` from `apps/api` | **Not a Deployable Unit** | Purely an imported library; directory presence and `package.json` presence alone do not create a unit |
 
+### Regression protection: `apps/web` has no `Dockerfile`, and that must not make its status conditional
+
+`apps/web` has no `Dockerfile` anywhere in its subtree — only `vercel.json` and a `package.json` with `scripts.start`. An agent running this fixture must still classify `apps/web` as an unconditional Deployable Unit, exactly as the table above states, and must **not** describe it with hedging language like "conditionally a deployable unit," "deployable if a Dockerfile is added," or "not yet a deployable unit until Kamal-ready." The missing `Dockerfile` is Kamal-readiness information that belongs to Step 5 (Apply Recipe) — it is a later concern about *how* Kamal would deploy `apps/web` if selected, never a qualifier on *whether* `apps/web` is a Deployable Unit. `apps/web` already satisfies the Step 3 independent-deployability test (own runnable process via `next start`) on that basis alone; the `vercel.json` existing-hosting evidence affects only the Step 5 *selection* question ("should Kamal manage it"), not the discovery classification. See `agents/patterns/deployable-units.md`'s "What does NOT determine Deployable Unit-hood" section.
+
 Expected Deployable Unit list: **2** (`apps/api`, `apps/web`). `packages/shared-utils` is excluded — this is the test that directory count/workspace-glob matches alone don't inflate the unit count.
 
 ## Expected selection (Step 1, selection sub-step)
