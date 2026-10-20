@@ -78,23 +78,57 @@ This table is the representation of "a Kamal-managed subset" — it must always 
 
 This section assumes the ownership question (SKILL.md Step 4b #6) has already resolved to "Kamal-managed accessory" for the dependency in question - both units merely depending on Postgres is not by itself a reason to create one. Once that's established: if two Kamal-managed units in the same repo both depend on the same Kamal-managed accessory (e.g. both `api` and `worker` use Postgres), do not define the accessory twice. Define it once, in whichever unit's `deploy.yml` is deployed first / considered primary, and point the other unit's `secret`/`clear` env at the same connection details. Note this explicitly in the documentation table above so it's clear which unit "owns" the accessory's lifecycle (`kamal accessory boot/reboot/remove` should be run against that unit's config file only). If instead the dependency is owned externally, there's nothing to share here - each unit just points at the same external connection string.
 
-## Inter-service communication (verified against current Kamal docs/behavior)
+## Inter-service communication (verified against Kamal's source, not just its public docs)
 
-This section applies whenever one Kamal-managed unit's app code or config needs to reach another **separately configured** Kamal service - a different `deploy.yml`/`service:` name, whether on the same server or a different one. It does not apply to app-container-to-accessory reachability within one unit's own `deploy.yml` - see SKILL.md Step 4b #6 for that.
+This section applies whenever one Kamal-managed unit's app code or config needs to reach another **separately configured** Kamal service - a different `deploy.yml`/`service:` name, whether on the same server or a different one. It does not apply to app-container-to-accessory reachability within one unit's own `deploy.yml` - see SKILL.md Step 4b #6 for that (accessories already have a genuinely stable identity, unlike app containers - see below).
 
-**Never invent a container hostname from a naming convention** (e.g. assuming a sibling service's container is reachable as `api-web-1`, `<service>-web-1`, or similar). Kamal does not document a stable discovery mechanism for resolving one separately-configured service's current container from another service's config or code, and container names/versions are rotated on every rolling deploy (old containers are retained briefly for rollback, then removed - see `retain_containers`). A guessed hostname that happens to work today is not a supported mechanism and will silently break on the next deploy, a host rebuild, or a `kamal-proxy` change. Do not emit a guessed hostname even with an `UNVERIFIED`/`TODO` comment attached - a comment does not stop it from being wired into working code that will be deployed and relied on.
+### Verified mechanics (`lib/kamal/commands/{docker,app,proxy,accessory}.rb`, `lib/kamal/configuration/proxy/boot.rb` in basecamp/kamal)
 
-**Default, supported mechanism - go through `kamal-proxy` like any other client:** each Kamal service already has a stable, documented public entry point - its `proxy.host` domain, served over HTTPS by `kamal-proxy`, which always routes to the current healthy container regardless of rolling deploys. Unless a faster or private channel is specifically required and solved below, one service should call another the same way a browser would: `https://<other-service's-proxy-host>/...`. This is stable across deploys by construction (it's the same mechanism load balancing production traffic) and works whether the two services are on the same host or different hosts.
+- `kamal setup` creates exactly **one** Docker network per host, literally named `kamal` (`docker network create kamal`). Every Kamal-managed app container, accessory container, and the proxy container join this same network via `--network kamal` - regardless of which `deploy.yml`/`service:` they belong to. Separately configured services sharing a host **do** end up on the same Docker network by default; the gap is not "do they share a network" but "what stable name can they call each other by on it."
+- **App containers are not stably named.** An app container's `--name` is `<service>-<role>-<destination>-<version>` (`Kamal::Configuration::Role#container_name`) - the version segment changes on every deploy, and the old container is kept briefly (`retain_containers`) then removed. Docker's embedded per-network DNS resolves containers by their current name, so a name that includes the version cannot be a stable target. This confirms the existing rule: **never** infer or hardcode a hostname like `api-web-1`/`<service>-web-1` - even disregarding where the convention came from, that name is guaranteed to stop resolving on the next deploy.
+- **Accessory containers are stably named.** An accessory's `--name` is just its `service_name` (defaults to `<service>-<accessory>`, from `Kamal::Configuration::Accessory`) - never versioned, never rotated by an app deploy. This is why the accessory-reachability guidance in `examples/with-postgres.md`/`with-redis.md` (connect via `<service>-postgres`/`<service>-redis` on the `kamal` network) is correct and unaffected by this section.
+- **`kamal-proxy` itself is stably named.** Exactly one `kamal-proxy` container runs per host, with the fixed container name `kamal-proxy` (`Kamal::Configuration::Proxy::Boot#container_name` - literally returns the string `"kamal-proxy"`, never versioned), also on the `kamal` network. It already tracks which app container is currently live for each configured `proxy.host` and routes by the `Host` header - the exact same mechanism that serves public traffic.
 
-**Distinguish the communication shapes before picking anything:**
+### Default networking policy: private internally, public only at required ingress boundaries
 
-- **Browser/client → service**: always the public `proxy.host` domain over HTTPS. Not in question here.
-- **Server/container → another service, same or different host, both publicly routable**: the public `proxy.host` domain over HTTPS is the default answer above - simplest, documented, stable. The cost is an extra hop through the proxy/TLS versus a theoretical direct path; that cost is usually acceptable and should be the default unless measured otherwise.
-- **Server/container → another service, where exposing it publicly is undesirable** (an internal API that shouldn't be reachable from the internet at all): Kamal itself does not provide a documented private stable cross-service discovery mechanism for this case. Do not invent one (no guessed container names, no assumed shared Docker network across separately-configured services). This requires its own explicit infrastructure decision - e.g. a private network/VPN/overlay (Tailscale, WireGuard, a cloud provider's private networking) between the hosts, or a firewall rule restricting the proxy's port to known source IPs plus a dedicated non-public port/host binding. Treat the choice of mechanism as a blocker: ask the user, or escalate to `agents/recipes/terraform.md` if private networking needs to be provisioned, rather than falling back to a guessed hostname to "make it work for now."
+Given the above, when Deployable Unit A needs to call Deployable Unit B, evaluate in this order - do not pick a tier merely because it's the easiest to identify:
 
-**If a target-relevant blocker from this section can't be resolved**, do not generate the dependent config/code with a guessed value. State the gap and what's needed to resolve it (which mechanism, what access/credentials) instead of shipping something that looks complete but isn't verified.
+**1. Same-host internal Docker network - default when both units are on the same server.** Call through the host's own `kamal-proxy` container over the internal `kamal` network, not the public domain: target `http://kamal-proxy` (container name, resolvable on the shared network, port 80 - `kamal-proxy`'s internal listener) with the `Host` header set to B's configured `proxy.host` value. This is the verified stable mechanism: it never requires guessing B's rotating container name, it automatically tracks B's currently-live container (that's `kamal-proxy`'s whole job), and it never leaves the host or touches the public internet/TLS. Do not target B's app container name directly - it isn't stable (see above).
 
-**Regression protection:** `tests/fixtures/multi-deployable-unit/EXPECTED.md`'s "Variant: both units Kamal-managed" section requires an agent asked to wire `apps/web` → `apps/api` communication to propose the public `proxy.host` URL (or explicitly escalate the private-networking question) and to reject any `apps/api-web-1`-style guessed hostname, even with a disclaimer comment attached.
+**2. Different hosts with private connectivity - when A and B are on separate servers that already have, or are given, a private network path.** Prefer that private path over the public internet when one exists or is explicitly provisioned (a VPN/overlay such as Tailscale/WireGuard, a cloud provider's private networking, a firewalled port restricted to known source IPs). Do not invent this infrastructure automatically - if it doesn't already exist, surface it as an explicit decision/provisioning step (escalate to `agents/recipes/terraform.md` if infrastructure needs to be created), not a thing to silently assume.
+
+**3. Public `proxy.host` + HTTPS - fallback, used only when internal/private communication isn't the right fit:**
+   - the caller cannot reach the internal/private network at all (a browser, a mobile app, a third-party webhook provider, another host with no private connectivity to this one);
+   - the architecture genuinely requires the traffic to leave the internal network;
+   - internal/private discovery can't be made stable or supported here for some documented reason;
+   - or the user explicitly asks for public/external inter-service communication.
+
+   When this tier is chosen, say why tiers 1-2 weren't used - don't default to it just because it's the most obviously documented route.
+
+**Never emit a guessed/unverified hostname as a placeholder, in any tier** - "UNVERIFIED" comments do not make a guessed container name acceptable; if the right tier's exact value isn't known yet (e.g. a private network hasn't been provisioned), say so and block that piece of config/code rather than filling in something that looks complete.
+
+### Exposure and inter-service communication are separate decisions
+
+Determine both, independently, per Deployable Unit - never infer one from the other:
+
+- **Exposure**: public (reachable from the internet via `proxy.host`), private/internal-only (no public `proxy.host` at all), or mixed (some routes public - e.g. a webhook endpoint - while the service is still called internally by other units for everything else).
+- **Inter-service communication**: which of the three tiers above each *caller* actually uses to reach this unit.
+
+A unit having a public endpoint (e.g. an API that receives third-party webhooks) does not mean other internal callers should go through that public endpoint - they should still use tier 1/2 above. Conversely, a unit with no public exposure at all can still be called internally via tier 1.
+
+### Browser/client vs. server/container callers (critical for frontends)
+
+Browser JavaScript cannot resolve `kamal-proxy` or any other Docker-network-internal name - it only ever sees whatever URL is baked into the client bundle or returned over the wire. So:
+
+- Code that runs **in the browser** (client components, `NEXT_PUBLIC_*`-driven fetches, any URL shipped to the client) must always use a browser-reachable address - tier 3, the public `proxy.host` domain. Never bake a `kamal-proxy`/internal container address into anything browser-visible, including `NEXT_PUBLIC_*` build args (see `agents/recipes/nextjs.md`'s caveats section).
+- Code that runs **on the server** inside the frontend's own container (API routes, `getServerSideProps`/server actions, a backend-for-frontend/proxy layer) is a normal server/container caller and should prefer tier 1 (or tier 2) exactly like any other inter-service call, even though the same logical "frontend calls API" relationship also has a browser-facing side elsewhere.
+- Do not force a browser → frontend-server → internal-API proxy architecture onto an app that doesn't already have one, and do not avoid it when the app's own request model already does this (e.g. Next.js API routes/server actions fronting a backend) - inspect the actual code path per unit rather than assuming either shape.
+
+### If a target-relevant blocker from this section can't be resolved
+
+Do not generate the dependent config/code with a guessed value. State the gap and what's needed to resolve it (which tier, what access/credentials/infra) instead of shipping something that looks complete but isn't verified.
+
+**Regression protection:** `tests/fixtures/multi-deployable-unit/EXPECTED.md`'s "Variant: both units Kamal-managed" section requires an agent asked to wire `apps/web`'s server-side code → `apps/api` to default to the internal `kamal-proxy` route (tier 1) rather than `apps/api`'s public `proxy.host`, to reject any `apps/api-web-1`-style guessed hostname even with a disclaimer comment, and to keep any browser-visible config pointed at a public URL instead of an internal one.
 
 ## When NOT to use this pattern
 

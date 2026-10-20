@@ -64,14 +64,26 @@ Because the Kamal-managed subset has exactly **one** unit, despite the repo cont
 
 ## Variant: both units Kamal-managed (cross-unit networking regression)
 
-This variant changes only the selection answer, not discovery: suppose the user instead asks Kamal to manage **both** `apps/api` and `apps/web` (dropping the Vercel hosting for `apps/web`), and `apps/web`'s frontend code needs to call `apps/api`'s `/health` (or any) endpoint server-side.
+This variant changes only the selection answer, not discovery: suppose the user instead asks Kamal to manage **both** `apps/api` and `apps/web` (dropping the Vercel hosting for `apps/web`), both deployed to the **same server**, and `apps/web`'s server-side code (e.g. an API route, not browser JS) needs to call `apps/api`'s `/health` (or any) endpoint.
 
-Expected behavior, per `agents/patterns/multi-service-repo.md`'s "Inter-service communication" section:
+Expected behavior, per `agents/patterns/multi-service-repo.md`'s "Inter-service communication" section and its default networking policy (private internally, public only at required ingress boundaries):
 
 - The agent must **not** write a guessed container hostname such as `apps-api-web-1`, `api-web-1`, or any `<service>-web-N` pattern into `apps/web`'s code or config as the way to reach `apps/api`. This is true even if the guess is accompanied by an `UNVERIFIED`/`TODO` comment — a disclaimer does not make an invented hostname acceptable, and an agent that emits one (commented or not) fails this fixture.
-- The default, expected answer is for `apps/web` to call `apps/api` via `apps/api`'s own `proxy.host` domain over HTTPS, the same way any other client would — not a private Docker-network shortcut invented for the occasion.
-- If the agent instead determines a private, non-publicly-routable channel is specifically required, it must say so explicitly and treat the choice of mechanism (private network/VPN, firewalled port, etc.) as an open question requiring the user's decision — not resolve it silently with a guess.
+- Because both units share one server, the **default, expected answer is tier 1**: `apps/web`'s server-side code should call through the host's own `kamal-proxy` container over the internal Docker network (target `kamal-proxy`, `Host` header set to `apps/api`'s configured `proxy.host`), not `apps/api`'s public `proxy.host` domain over the public internet. An agent that defaults straight to the public HTTPS URL for this same-host server-to-server call, without explaining why tier 1 wasn't used, fails this fixture — public routing is a fallback here, not the default.
+- If the agent instead determines a private, non-publicly-routable channel across *different* hosts is specifically required (tier 2), it must say so explicitly and treat the choice of mechanism (private network/VPN, firewalled port, etc.) as an open question requiring the user's decision — not resolve it silently with a guess.
+- Any value written into browser-visible configuration (e.g. a `NEXT_PUBLIC_*` build arg, if `apps/web` needs one for client-side calls to `apps/api`) must still be `apps/api`'s public `proxy.host` URL — the internal `kamal-proxy` route from the bullet above is only for `apps/web`'s own server-side code, never for anything shipped to the browser. An agent that leaks `kamal-proxy` or any internal container name into a `NEXT_PUBLIC_*` variable fails this fixture.
 - This variant now exercises `agents/patterns/multi-service-repo.md`'s `-c`/`--config-file` mechanics (both units selected), which the base scenario above intentionally leaves out of scope.
+
+### Sub-variant: `apps/api` also receives an external webhook
+
+Extend the same two-unit scenario: `apps/api` additionally needs a public endpoint for a third-party webhook (e.g. a payment provider). Expected behavior:
+
+- `apps/api` gets public exposure (its own `proxy.host`) for the webhook route — exposure is a per-unit, per-route decision, not an all-or-nothing switch.
+- `apps/web`'s internal call to `apps/api` (from the bullet above) still uses the tier-1 internal route. `apps/api` having a public endpoint for the webhook must not be treated as a reason to route `apps/web`'s internal call through that public endpoint instead — an agent that does this (reasoning "it's public now anyway") fails this sub-variant. Exposure and inter-service communication are independent decisions.
+
+### Sub-variant: internal routing unavailable
+
+If the agent determines (or the user states) that `apps/api` and `apps/web` do *not* actually share a host/network — e.g. the user says they'll be on unrelated infrastructure with no private connectivity — falling back to tier 3 (public `proxy.host`/HTTPS) is correct. The agent must state the reason the internal/private tiers weren't used (no shared host/network) rather than silently defaulting to public routing without explanation, and must not invent private connectivity that wasn't stated to exist.
 
 ## Explicitly out of scope for this fixture
 

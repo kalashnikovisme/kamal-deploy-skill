@@ -297,13 +297,14 @@ Add to `.gitignore`:
 - **Migrating from Vercel**: if this unit is being moved off Vercel rather than built fresh, see `agents/patterns/migrate-from-vercel.md` for inventorying and classifying Vercel-specific behavior (ISR/revalidate, Edge Middleware, image optimization, crons, `@vercel/*` packages) before relying on this recipe's defaults alone - those items need an explicit migration decision, not just a Dockerfile.
 
 - **`output: 'standalone'`** is required. Without it, the Next.js build does not produce `server.js` and the CMD will fail.
-- **`NEXT_PUBLIC_*` variables** are baked at build time. If these differ between staging and production, pass them as Docker build args via `builder.args` in `deploy.yml`:
+- **`NEXT_PUBLIC_*` variables** are baked at build time and shipped into the browser bundle — they must always be a browser-reachable address (the API's public `proxy.host` domain), never a Docker-internal name like `kamal-proxy` or another unit's container name. If these differ between staging and production, pass them as Docker build args via `builder.args` in `deploy.yml`:
   ```yaml
   builder:
     arch: amd64
     args:
       NEXT_PUBLIC_API_URL: https://api.example.com
   ```
+  This is distinct from server-side calls to another Kamal-managed unit (API routes, `getServerSideProps`, server actions) — those run inside this unit's own container and should follow `agents/patterns/multi-service-repo.md`'s internal-by-default networking policy instead, via a plain (non-`NEXT_PUBLIC_`) server-only env var.
 - **Worker CMD**: the `workers` role overrides the image CMD at runtime — the Dockerfile `CMD` still applies to the `web` role.
 - **Worker restarts**: Kamal restarts crashed containers automatically. Ensure the worker process exits with a non-zero code on fatal errors so Kamal can restart it.
 - **Scaling workers**: to run the worker on a second server, add its IP to the `workers.hosts` list.

@@ -78,6 +78,10 @@ A representative signal → bucket mapping (illustrative, not exhaustive — cla
 | Preview deployments relied on by the team | Unknown / requires user input — Kamal has no automatic per-branch equivalent; a staging destination is the closest analog, not a replacement |
 | Domains/aliases | Unknown / requires user input — not reliably in-repo |
 
+### Topology changes are an expected, intentional part of the delta
+
+Migration frequently changes *how* units reach each other, not just *where* each unit runs. A frontend calling a backend unit through its public hostname (the only option Vercel's architecture allows) does not need to keep doing that once both units are Kamal-managed on infrastructure where they can reach each other internally — per `agents/patterns/multi-service-repo.md`'s "Inter-service communication" default (internal `kamal-proxy` route first, public `proxy.host` only as a fallback). Classify a same-host, server-to-server call that was public-only under Vercel as **"Requires Kamal/server equivalent"**, with the equivalent being the internal route, not a restatement of the old public URL — this is an intentional improvement, not a regression to flag as a behavior change. This does not apply to endpoints that must stay externally reachable for their own reasons regardless of migration — webhooks, OAuth callbacks, browser-facing API routes, mobile-client endpoints, and other third-party integrations keep their public exposure; only the *internal* caller's path changes.
+
 ## Phase 3: Identify unknowns — ask, never guess
 
 Never invent a secret or environment variable value that isn't actually available from the repo, the user, or (read-only) authenticated tooling. Repository evidence can show that a variable is *referenced*; it essentially never shows its *value* or its per-environment scope. Things that routinely cannot be discovered from the repo and must be asked:
