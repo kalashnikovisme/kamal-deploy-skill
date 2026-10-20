@@ -1,0 +1,9 @@
+{
+  "framework": "nextjs",
+  "rewrites": [
+    { "source": "/legacy/:path*", "destination": "/:path*" }
+  ],
+  "crons": [
+    { "path": "/api/cron/sync", "schedule": "0 * * * *" }
+  ]
+}

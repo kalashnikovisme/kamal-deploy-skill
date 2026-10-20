@@ -14,6 +14,7 @@ A Claude Code / Codex skill for configuring [Kamal](https://kamal-deploy.org/) d
 
 - Discovers every independently-deployable application/service in the repo first, instead of assuming one repo = one app. A root workspace/monorepo tool (npm/pnpm/yarn workspaces, Nx, Turborepo, Cargo workspaces) does not by itself imply either one unit or many — deployability is judged per candidate, not from directory count or tooling presence
 - Asks which discovered units Kamal should manage; units left out (e.g. already deployed elsewhere, like a frontend on Vercel) are documented but otherwise untouched
+- Migrates an existing Vercel-hosted unit to Kamal on request, or when the repo shows signs of it: inventories current Vercel behavior, classifies what carries over unchanged vs. needs a Kamal/server equivalent vs. needs an external service vs. needs a user decision, validates the Kamal target independently before any cutover, and gates production cutover and decommissioning behind explicit user approval — never touching Vercel's own config until asked
 - Detects if a unit is Ruby on Rails → redirects to tramway-skill for that unit
 - Detects each managed unit's technology stack automatically and loads the matching recipe
 - Supports Node.js / Next.js, Python, Go, PHP / Laravel, Java / Spring Boot, .NET, Elixir / Phoenix, Terraform, and unknown-stack fallback

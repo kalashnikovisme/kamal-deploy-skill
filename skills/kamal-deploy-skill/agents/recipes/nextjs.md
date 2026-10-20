@@ -294,6 +294,8 @@ Add to `.gitignore`:
 
 ## 8. Caveats
 
+- **Migrating from Vercel**: if this unit is being moved off Vercel rather than built fresh, see `agents/patterns/migrate-from-vercel.md` for inventorying and classifying Vercel-specific behavior (ISR/revalidate, Edge Middleware, image optimization, crons, `@vercel/*` packages) before relying on this recipe's defaults alone - those items need an explicit migration decision, not just a Dockerfile.
+
 - **`output: 'standalone'`** is required. Without it, the Next.js build does not produce `server.js` and the CMD will fail.
 - **`NEXT_PUBLIC_*` variables** are baked at build time. If these differ between staging and production, pass them as Docker build args via `builder.args` in `deploy.yml`:
   ```yaml

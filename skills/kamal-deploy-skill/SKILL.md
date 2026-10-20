@@ -1,6 +1,6 @@
 ---
 name: kamal-deploy-skill
-description: 'Configure Kamal deployment for any non-Rails technology stack. Use when the user asks to implement, set up, or configure deployment via Kamal, deploy.yml, or Docker-based deployment in a non-Rails project. Covers Node.js / Next.js, Python, Go, PHP / Laravel, Java / Spring Boot, .NET, Elixir / Phoenix, Terraform / infrastructure provisioning, and unknown-stack fallback. Handles both single-application repos and repos containing multiple independently deployable services. If the project is Ruby on Rails, this skill redirects to tramway-skill instead.'
+description: 'Configure Kamal deployment for any non-Rails technology stack. Use when the user asks to implement, set up, or configure deployment via Kamal, deploy.yml, or Docker-based deployment in a non-Rails project. Covers Node.js / Next.js, Python, Go, PHP / Laravel, Java / Spring Boot, .NET, Elixir / Phoenix, Terraform / infrastructure provisioning, and unknown-stack fallback. Handles both single-application repos and repos containing multiple independently deployable services. Also use when migrating an existing deployment from Vercel to Kamal. If the project is Ruby on Rails, this skill redirects to tramway-skill instead.'
 ---
 
 # Kamal Deploy Skill
@@ -63,6 +63,10 @@ Run this once per Skill invocation, before Steps 2+. Its output is:
 If the Kamal-managed subset is empty (e.g. the user only wanted documentation of what exists, or every candidate turned out to be Rails or a non-deployable library), stop here and summarize what was found.
 
 If the Kamal-managed subset has exactly one unit, everything below behaves exactly as a single-app repo always has - plain `config/deploy.yml`, no unit suffixes, no `-c` flag. **Steps 2-5.5 below run once per unit in the Kamal-managed subset.** If more than one unit was selected, also load `agents/patterns/multi-service-repo.md` - it defines the `config/deploy.<unit>.yml` naming, the `-c`/`--config-file` mechanism, and how `secrets_path`/`hooks_path` must be kept separate per unit.
+
+### Vercel Migration Detection
+
+If the user explicitly says a unit (or the whole project) is currently deployed on Vercel and should move to Kamal, or if repository evidence suggests it (`vercel.json`, a `.vercel/` directory, `@vercel/*` packages, `VERCEL`/`VERCEL_ENV`/`VERCEL_URL` references, Vercel-related CI steps), load `agents/patterns/migrate-from-vercel.md` for that specific unit before continuing to Step 2 for it. This applies per unit, never to the whole repo at once - a repo being associated with Vercel does not mean every discovered unit is Vercel-hosted or in scope for migration. Repository evidence only suggests relevance; confirm with the user before treating a unit as actually migrating, unless the user has already said so explicitly. An explicit user statement always overrides uncertainty from repository evidence.
 
 ## Step 2: Detect Technology Stack
 
@@ -402,6 +406,8 @@ If the target repository uses the Arie wrapper layout under `bin/`, treat those 
 - Auxiliary flows: `bin/regsys-build` builds and pushes `recsys/Dockerfile.regsys` and `recsys/Dockerfile.jobs`; `bin/regsys-registry-boot` boots the local registry container used by that flow; `bin/psql` and `bin/authorize` are operational wrappers to mention for database and auth workflows; `bin/run-data-migration` is an explicit staging-only wrapper for data migration scripts
 
 When documenting this repo, use the wrapper names above and the destination-based flow instead of raw `kamal` commands. Mention raw Kamal only when explaining what the wrapper ultimately executes.
+
+If `agents/patterns/migrate-from-vercel.md` was loaded for any unit in this run, complete its validation, cutover-approval, and rollback-window phases for that unit before writing the Step 7 summary below - do not treat Step 6's documentation update as the end of a migrating unit's workflow.
 
 ## Step 7: Summary
 

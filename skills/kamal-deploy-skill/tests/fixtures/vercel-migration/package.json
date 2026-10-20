@@ -1,0 +1,7 @@
+{
+  "name": "vercel-migration-fixture",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ]
+}

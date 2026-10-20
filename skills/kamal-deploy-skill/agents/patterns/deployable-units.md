@@ -54,7 +54,7 @@ For each candidate that passed step 3, record:
 - Name (derived from directory name unless the user says otherwise)
 - Root path within the repo
 - Evidence used to classify it as independently deployable
-- Any existing hosting-platform evidence found in step 1 (e.g. "has `vercel.json`") — this is a signal to surface to the user in step 5, never a final decision made on the Skill's behalf
+- Any existing hosting-platform evidence found in step 1 (e.g. "has `vercel.json`") — this is a signal to surface to the user in step 5, never a final decision made on the Skill's behalf. If the user wants to actually move a unit off that platform onto Kamal rather than just leave it alone, see `agents/patterns/migrate-from-vercel.md` (for Vercel specifically) before proceeding with that unit.
 
 Present the full list to the user, including units that are clearly not going to be Kamal-managed (e.g. a frontend already on Vercel). Discovery produces **all** units in the repo; selection (step 5) narrows to the Kamal-managed subset.
 
