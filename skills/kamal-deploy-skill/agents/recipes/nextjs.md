@@ -304,7 +304,7 @@ Add to `.gitignore`:
     args:
       NEXT_PUBLIC_API_URL: https://api.example.com
   ```
-  This is distinct from server-side calls to another Kamal-managed unit (API routes, `getServerSideProps`, server actions) — those run inside this unit's own container and should follow `agents/patterns/multi-service-repo.md`'s internal-by-default networking policy instead, via a plain (non-`NEXT_PUBLIC_`) server-only env var.
+  This is distinct from server-side calls to another Kamal-managed unit (API routes, `getServerSideProps`, server actions) — those run inside this unit's own container and should follow `agents/patterns/multi-service-repo.md`'s stable-endpoint decision model instead, via a plain (non-`NEXT_PUBLIC_`) server-only env var. Never give that server-only env var a `127.0.0.1`/`localhost` fallback value meaning "the API unit" — `127.0.0.1`/`localhost` inside this unit's container always refers to this unit's own process namespace, never another Deployable Unit's container, with or without a host-network override (which this recipe does not use). A missing value should fail fast, not silently resolve to the wrong container.
 - **Worker CMD**: the `workers` role overrides the image CMD at runtime — the Dockerfile `CMD` still applies to the `web` role.
 - **Worker restarts**: Kamal restarts crashed containers automatically. Ensure the worker process exits with a non-zero code on fatal errors so Kamal can restart it.
 - **Scaling workers**: to run the worker on a second server, add its IP to the `workers.hosts` list.
