@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.1 — 2026-10-20
+
+- Fix: SKILL.md Step 4b #3 (remote builder) no longer offers "Local (default)" as an option when the user already chose a local Kamal registry - the two are mutually exclusive since only the server can reach its own `localhost` registry. When local Kamal registry is chosen, the skill now states remote build is required and configures it directly, instead of asking an open local-vs-remote question and only warning about the conflict after the fact if the user picked local.
+
 ## 1.1.0 — 2026-10-20
 
 - Add first-class Vercel → Kamal migration support as a new cross-cutting pattern, `agents/patterns/migrate-from-vercel.md`. Migration is scoped per Deployable Unit (never per-repo): normal discovery/selection runs first, Vercel evidence only *suggests* relevance and never proves current hosting, and an explicit user statement always overrides uncertain repo evidence. The pattern inventories current Vercel behavior (vercel.json, framework/build/output config, env references, redirects/rewrites/headers, serverless functions, middleware/Edge runtime, crons, ISR/caching, image optimization, Vercel-specific packages, domains/preview-deploy assumptions, Vercel CI steps) using a fixed eight-bucket classification model, asks rather than guesses for anything not discoverable from the repo (secret values, domains, dashboard-only state), and never invents a secret/env value. It builds the Kamal target entirely through the existing Skill (stack detection, recipes, Dockerfile/deploy.yml generation, accessory ownership, wrappers, docs) without duplicating any of that logic, and never removes or modifies Vercel configuration while doing so.

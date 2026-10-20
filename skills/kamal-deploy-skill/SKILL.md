@@ -178,22 +178,33 @@ Collect the following (ask only what is not already determinable from the projec
 
    Remove `KAMAL_REGISTRY_PASSWORD` from `.kamal/secrets` - it is not needed.
 
-3. **Remote builder** - ask:
+3. **Remote builder** - ask, but never offer local build as an option alongside a local Kamal registry: the two are mutually exclusive, since only the server can reach its own `localhost:4443` registry. Decide which form of this question to ask based on the registry choice above:
 
-   > "Where do you want Docker images to be built?
-   >
-   > - **Local** (default) - Kamal builds the image on this machine using your local Docker, then pushes it to the registry.
-   > - **Remote** - Kamal SSHes into the server and builds the image there. Useful when you don't have Docker locally, when the server architecture differs from your machine (e.g. building arm64 images on an amd64 laptop), or when the server has more CPU/RAM than your local machine."
+   - **If the user chose local Kamal registry**: do not ask an open local-vs-remote question. State that remote build is required and confirm the server details:
 
-   - **Local** -> no `builder` block needed; omit it from `deploy.yml`.
-   - **Remote** -> add to `deploy.yml`:
+     > "Since you're using a local Kamal registry, builds must happen on the server (a local builder can't push to a registry bound to `localhost` on a remote machine). I'll configure a remote builder targeting `<SERVER_IP>`."
+
+     Add to `deploy.yml`:
      ```yaml
      builder:
        remote: ssh://root@<SERVER_IP>
        arch: amd64
      ```
 
-   **Note for local Kamal registry users**: the registry runs on the server and is bound to `127.0.0.1:4443`. A remote builder is required in this case because only the server can reach `localhost:4443`. If the user chose local registry and selects local builder, warn them: "A local builder cannot push to a localhost registry on a remote server. Switch to remote builder, or use an external registry instead."
+   - **Otherwise** (Docker Hub / GHCR / private registry), ask normally with no option excluded:
+
+     > "Where do you want Docker images to be built?
+     >
+     > - **Local** (default) - Kamal builds the image on this machine using your local Docker, then pushes it to the registry.
+     > - **Remote** - Kamal SSHes into the server and builds the image there. Useful when you don't have Docker locally, when the server architecture differs from your machine (e.g. building arm64 images on an amd64 laptop), or when the server has more CPU/RAM than your local machine."
+
+     - **Local** -> no `builder` block needed; omit it from `deploy.yml`.
+     - **Remote** -> add to `deploy.yml`:
+       ```yaml
+       builder:
+         remote: ssh://root@<SERVER_IP>
+         arch: amd64
+       ```
 
 4. **Service name** - defaults to the unit's directory name if not specified (repo name for a single-unit repo)
 5. **Domain / hostname** - confirmed in 4a, or ask if not yet known; for multiple units sharing one server, ask whether each gets its own subdomain
