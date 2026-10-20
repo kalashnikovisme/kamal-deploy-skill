@@ -36,4 +36,8 @@ cp -R ./skills/kamal-deploy-skill ~/.codex/skills/kamal-deploy-skill
 
 This local sync is a developer-only convenience for testing your working tree — it is not how end users install or update the skill. The recommended path for users is the Claude Code plugin marketplace described in `README.md`; see it for the marketplace add/install/update commands.
 
+## Commit and Push (Mandatory)
+
+Every task that changes code in this repository must end with a `git commit` of those changes, followed by a `git push` to the remote. This is a standing authorization — do not wait for the user to separately ask to commit or push in each task. Commit after the version bump, validation, and sync steps above are done, so the commit captures the whole task's result. Do not leave repository changes uncommitted or unpushed at the end of a task.
+
 Do not add a `.claude-plugin/plugin.json` file. A plugin manifest declaring components alongside `marketplace.json`'s own `"skills"` array causes Claude Code to refuse to load the plugin with a "conflicting manifests" error — `marketplace.json` is the single source of truth for this plugin's component list.
