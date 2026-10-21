@@ -50,3 +50,7 @@ Record which backend was chosen in the project's deployment documentation (SKILL
 - **SOPS + age**: load `agents/patterns/secrets-sops-age.md` for setup, editing, multi-user recipients, rotation, migration, and validation.
 - **1Password**: use Kamal's native `kamal secrets fetch --adapter 1password` integration per Kamal's own documentation; no dedicated pattern file exists for it in this Skill beyond the existing secrets guidance in SKILL.md Step 4b/Secrets Policy.
 - **Other established backends found above**: follow the project's existing convention; do not invent new tooling for it.
+
+## Derived values apply regardless of backend
+
+Whichever backend is selected, before storing any connection-string-shaped value, load `agents/patterns/derived-deployment-values.md` and run its dependency analysis. The backend should hold the minimal set of independent secret primitives needed to reconstruct the deployment environment - not duplicated derived representations (e.g. a database password plus an independently-stored connection string built from that same password).

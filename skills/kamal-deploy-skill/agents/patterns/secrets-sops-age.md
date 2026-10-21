@@ -67,7 +67,7 @@ Recommend project-level helpers if the repo doesn't already have an equivalent. 
 
 - **`bin/secrets edit`** - runs `sops config/secrets.sops.yaml`. Opens decrypted in `$EDITOR`, re-encrypts on save, never leaves a plaintext file on disk afterward.
 - **`bin/secrets show`** - runs `sops -d config/secrets.sops.yaml`. Must make clear in its own output/help text that it prints secret values to the terminal; never invoke this from another script or automatically.
-- **`bin/secrets check`** - verifies, without printing values: `sops` is installed; an age identity is resolvable (`SOPS_AGE_KEY_FILE` set / default identity path present); `sops -d` on the encrypted file succeeds; every secret name referenced by `config/deploy.yml`'s `env.secret`/accessory `secret:` lists exists as a key in the decrypted structure; no plaintext secrets file (e.g. an untracked `.env` with real values, a non-SOPS `.kamal/secrets` with literal values) is tracked by git. If a safe "list key names only" SOPS invocation is available for the installed version, prefer it over a full decrypt-then-discard-values approach.
+- **`bin/secrets check`** - verifies, without printing values: `sops` is installed; an age identity is resolvable (`SOPS_AGE_KEY_FILE` set / default identity path present); `sops -d` on the encrypted file succeeds; every secret **primitive** referenced by `config/deploy.yml`'s `env.secret`/accessory `secret:` lists exists as a key in the decrypted structure; no plaintext secrets file (e.g. an untracked `.env` with real values, a non-SOPS `.kamal/secrets` with literal values) is tracked by git. A **derived** value (e.g. `DATABASE_URL`) is not checked for its own backend entry - it has none by design - its *dependencies* (the primitive(s) plus topology it derives from, per `agents/patterns/derived-deployment-values.md`) are checked instead, and derivation success is verified without printing the result. If a safe "list key names only" SOPS invocation is available for the installed version, prefer it over a full decrypt-then-discard-values approach.
 
 Also document the raw underlying commands (`sops config/secrets.sops.yaml`, `sops -d config/secrets.sops.yaml`, `sops --extract ... -d ...`, `sops updatekeys config/secrets.sops.yaml`) so the workflow doesn't depend entirely on custom wrappers existing.
 
@@ -106,6 +106,8 @@ If every age identity capable of decrypting `config/secrets.sops.yaml` is lost, 
 ## Secret classification (don't encrypt everything)
 
 Keep clear/non-secret configuration (hostnames, ports, public URLs, database names, non-secret feature flags) in `config/deploy.yml`'s normal clear configuration - do not move it into SOPS merely because SOPS is available. Only passwords, private API keys, signing secrets, private tokens, and registry credentials (where actually required - see below) belong in the encrypted backend.
+
+`config/secrets.sops.yaml` holds secret **primitives** only - never a derived composite value (a `DATABASE_URL` that just re-embeds a password already stored as `POSTGRES_PASSWORD`) and never a value with no secret material at all (an unauthenticated accessory's `REDIS_URL`). See `agents/patterns/derived-deployment-values.md` for the full category breakdown and how `.kamal/secrets` constructs derived values at resolution time without ever writing them to disk.
 
 ## Browser/build-time variables
 

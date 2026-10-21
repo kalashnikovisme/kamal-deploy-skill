@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.4.0 — 2026-10-21
+
+Adds a generalized derived-deployment-values model so the Skill stops treating deterministic connection strings as independent secrets.
+
+- **New core invariant**: never ask the user for a deployment value the Skill can derive deterministically from its own Kamal/accessory configuration plus already-stored secret primitives; store secret primitives, not duplicated derived representations of them. Added `agents/patterns/derived-deployment-values.md`, defining four value categories (secret primitive, derived secret value, derived clear configuration, user-supplied clear/public configuration), a mandatory dependency-analysis step run before any connection-string secret or placeholder is written, and the precedence rule that Kamal topology is the source of truth for hosts/ports/names while the secrets backend is the source of truth for primitives.
+- **PostgreSQL**: `DATABASE_URL` for a Skill-managed accessory is now derived at secret-resolution time from `POSTGRES_PASSWORD` plus accessory topology, never stored as an independent secret. Requires correct percent-encoding of the password component (not a weak-character-set workaround) so passwords containing `@ : / ? # %` can't break the URL.
+- **Redis**: an unauthenticated accessory's `REDIS_URL` is now generated as derived *clear* configuration (no secret material, never enters the secrets backend, never becomes a placeholder); an authenticated accessory stores only `REDIS_PASSWORD` as the primitive and derives `REDIS_URL` the same way as `DATABASE_URL`.
+- **External/provider-managed databases are explicitly exempted**: a `DATABASE_URL` pointing at Supabase/Neon/RDS/etc. - anything whose topology the Skill doesn't control - is stored as a single opaque secret primitive and never decomposed or reconstructed. Existing production connection strings are never swapped for a newly-derived accessory URL without the user's explicit migration confirmation.
+- **Secret generation**: the Skill may now generate a brand-new primitive (e.g. a new accessory's password) with cryptographically secure randomness when it owns both sides of that credential and there's no existing value to preserve - never for third-party credentials, never regenerating an existing one, never printed anywhere.
+- **Placeholder policy**: `TODO_FILL_IN` may only be written after confirming the value isn't derivable from topology, derivable from topology plus a primitive, or safely Skill-generatable.
+- Fixed a latent bug in `examples/with-postgres.md`: `DATABASE_URL` was previously placed in `env.clear` with shell-style `${POSTGRES_PASSWORD}` interpolation, which `deploy.yml`'s YAML/ERB parsing would never expand - it is now correctly derived in `.kamal/secrets` and listed under `env.secret`. Extended `examples/with-redis.md` with an authenticated-accessory variant.
+- Updated `agents/patterns/secrets-sops-age.md` and `agents/patterns/secrets-backend.md` to apply the same derived-value rule across every backend (SOPS + age, 1Password, others), and updated `bin/secrets check` guidance so a derived value is validated via its dependencies rather than requiring its own backend entry.
+- Updated `SKILL.md` Step 4b #6 to load the new pattern before any accessory connection-string secret is written, and updated the Secrets Policy section (gitignore default + the new derivation invariant).
+- Added `tests/fixtures/derived-deployment-values/EXPECTED.md`, covering Skill-managed PostgreSQL (primitive + derived URL, correct encoding), unauthenticated and authenticated Redis, external PostgreSQL (no decomposition), newly-generated vs. preserved existing passwords, URI-special-character passwords, duplicated-derived-secret detection/normalization, and a derived internal service URL.
+
 ## 1.3.0 — 2026-10-21
 
 Adds first-class support for SOPS + age as a secrets-management backend, alongside a new mandatory backend-selection step that runs before any production secret is generated.
