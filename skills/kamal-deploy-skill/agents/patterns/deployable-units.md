@@ -68,7 +68,7 @@ If more than one Deployable Unit was found, list them with their stack (once det
 
 Record the answer as the **Kamal-managed subset**. A unit that is not selected is not touched by any later step — no Dockerfile, no deploy.yml, nothing. It is still documented (see Step 6 of SKILL.md) so the resulting setup is legible as a whole, but it is otherwise out of scope.
 
-Multiple units may be selected. A single repository may end up with more than one Kamal-managed unit — see `agents/patterns/multi-service-repo.md` for how that is represented in config.
+Multiple units may be selected. **A Deployable Unit is not the same thing as a Kamal deployment — selecting multiple units here does not mean they each get their own `config/deploy.yml`.** When the Kamal-managed subset has more than one unit, the next step is `agents/patterns/deployment-boundary.md`, which decides whether those units are represented as roles/accessories inside one Kamal deployment (the preferred default) or as genuinely separate deployments, before `agents/patterns/multi-service-repo.md`'s multi-file conventions apply to any of them.
 
 ### 6. Apply stack recipes and cross-cutting patterns independently, per selected unit
 
@@ -78,10 +78,10 @@ If the Kamal-managed subset has exactly one unit, the rest of the Skill behaves 
 
 ## Worked Examples
 
-- A pnpm/Turborepo repo with `apps/frontend`, `apps/api`, `apps/worker`: three candidates, all three pass the independent-deployability test (each has its own start command and process) → three Deployable Units, regardless of the shared Turborepo config at the root.
+- A pnpm/Turborepo repo with `apps/frontend`, `apps/api`, `apps/worker`: three candidates, all three pass the independent-deployability test (each has its own start command and process) → three Deployable Units, regardless of the shared Turborepo config at the root. How many Kamal deployments that becomes is decided separately by `agents/patterns/deployment-boundary.md`, not implied by this count.
 - A Rails repo with `app/`, `lib/`, `packages/`: one candidate at the repo root (the Rails app itself); `lib/` and `packages/` are internal code with no standalone entrypoint → one Deployable Unit.
 - A repo with `frontend/` (has `vercel.json`, no Dockerfile) and `api/` (has a `Dockerfile`, no existing hosting config): two Deployable Units. The user may select only `api` for Kamal management — `frontend` stays documented but untouched.
-- A repo with `api/` and `worker/`, both lacking any existing hosting config, both independently runnable: two Deployable Units, and the user may select both for Kamal management → triggers the multi-service pattern.
+- A repo with `api/` and `worker/`, both lacking any existing hosting config, both independently runnable, same product, same server, released together: two Deployable Units selected for Kamal management → `deployment-boundary.md` runs next, and if `worker` can run from `api`'s image under a different `cmd`, the preferred outcome is **one** Kamal deployment with `api` and `worker` as two roles, not two `config/deploy.*.yml` files. The multi-service pattern (`agents/patterns/multi-service-repo.md`) only triggers if that evaluation instead finds a genuine Level 3 reason to keep them separate.
 
 ## Interaction with Step 0 (Rails Guard)
 
