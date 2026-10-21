@@ -23,6 +23,7 @@ A Claude Code / Codex skill for configuring [Kamal](https://kamal-deploy.org/) d
 - Applies cross-cutting patterns independently per unit as needed: a secondary runtime invoked as a subprocess, large build-time assets baked into the image, and database migration mechanics (pre-deploy hook vs. inline-at-boot)
 - Checks an existing Dockerfile for Kamal-readiness (single identifiable port, foreground process, health-checkable path) before reusing it
 - Configures accessories (PostgreSQL, Redis) only once the user (or clear repo evidence) confirms Kamal should own that dependency — a detected dependency on its own never implies Kamal should provision it; an externally-owned dependency gets its connection secret instead, with no accessory block
+- Before writing any production secret, detects an established secrets backend (Rails credentials, SOPS, 1Password, Doppler, Bitwarden, a cloud secret manager) and preserves it; only when no backend exists yet does it present options — at minimum 1Password and SOPS + age — and persists the choice so future runs don't re-ask
 - Creates multi-destination configs (staging + production)
 - Prefers repository `bin/` wrappers over raw `kamal` commands when the project ships an operational layer like the Arie wrappers
 - Generates a minimal `bin/deploy` wrapper (or per-unit wrappers, for multiple managed units) when the project has no Kamal `bin/` layer yet, guaranteed to forward `-q`/`--quiet`, `-c`/`--config-file`, and all other Kamal flags unmodified
@@ -41,6 +42,18 @@ A Claude Code / Codex skill for configuring [Kamal](https://kamal-deploy.org/) d
 | Elixir | Phoenix, plain OTP releases |
 | Terraform | Server and DNS provisioning for existing or new infrastructure |
 | Unknown | Fetches fresh Kamal docs and guides interactively |
+
+## Secrets backends
+
+The skill never invents a secrets backend on its own — it detects an established one and preserves it, or presents options when none exists yet (`agents/patterns/secrets-backend.md`). Only one native Kamal adapter exists among these; the rest integrate through `.kamal/secrets` command substitution:
+
+| Backend | Storage | Decryption / access | Best fit | Native Kamal adapter? |
+|---|---|---|---|---|
+| Rails credentials | `config/credentials.yml.enc` committed | `RAILS_MASTER_KEY`/`config/master.key` kept outside Git | Existing Rails projects already using this model | No (Rails-level, not Kamal) |
+| 1Password | Values live in an external vault, not in the repo | 1Password service account / Connect server | Teams already centralizing secrets in 1Password; want vault-level audit | Yes — `kamal secrets fetch --adapter 1password` |
+| SOPS + age | Encrypted file (`config/secrets.sops.yaml`) committed to the repo | An age private identity held outside Git by whoever needs to decrypt | No external SaaS dependency; a Rails-credentials-like workflow for non-Rails projects | No — integrated via `.kamal/secrets` command substitution calling `sops` directly (see `agents/patterns/secrets-sops-age.md`) |
+
+Neither 1Password nor SOPS + age is "more secure" in the abstract — they differ in ownership model: 1Password keeps secret values outside the repo entirely, under a vault service; SOPS + age keeps encrypted values inside the repo, with the decryption capability (the age private identity) held outside it.
 
 ## Versioning
 

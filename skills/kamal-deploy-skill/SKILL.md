@@ -160,6 +160,8 @@ After the Terraform recipe completes, resume at Step 4b with the confirmed serve
 
 ### 4b. Remaining Configuration
 
+**Before collecting anything else, determine the secrets-management backend.** Load `agents/patterns/secrets-backend.md` and follow it: inspect the repo for an already-established backend (Rails credentials, SOPS, 1Password, Doppler, Bitwarden, a cloud secret manager) and preserve it unless the user explicitly asks to change it; only present options (1Password, SOPS + age, at minimum) when no backend is established yet. This decision governs how every secret collected below is actually stored and resolved - do it once per repo, not per item below, and do not re-ask on a later Skill invocation once a backend is already established for this project.
+
 Collect the following (ask only what is not already determinable from the project files or from the Terraform step). If there are multiple Kamal-managed units sharing a server/registry, ask these once and apply the shared answers to every unit; only ask per-unit where the answer plausibly differs (domain/subdomain, accessories, service name):
 
 1. **Server IP address(es)** - confirmed in 4a, or ask if not yet known
