@@ -54,3 +54,7 @@ Record which backend was chosen in the project's deployment documentation (SKILL
 ## Derived values apply regardless of backend
 
 Whichever backend is selected, before storing any connection-string-shaped value, load `agents/patterns/derived-deployment-values.md` and run its dependency analysis. The backend should hold the minimal set of independent secret primitives needed to reconstruct the deployment environment - not duplicated derived representations (e.g. a database password plus an independently-stored connection string built from that same password).
+
+## Generating secret values regardless of backend
+
+Whenever a secret primitive needs an actual value - automatically, because the Skill is creating owned infrastructure, or because the user explicitly asked for one to be generated or rotated - load `agents/patterns/secret-generation.md` before generating anything. It defines the generation-policy classification, CSPRNG/tool selection, and the backend-specific write strategy for each backend above (SOPS + age, 1Password, and others). Never switch a project to a different backend merely because generation feels easier there - generate into whichever backend this file already established for the project.

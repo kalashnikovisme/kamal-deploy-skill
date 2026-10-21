@@ -97,18 +97,9 @@ Never replace an existing external/production connection string with a newly der
 
 ## Generating new secret primitives
 
-When a secret primitive belongs entirely to infrastructure the Skill is newly creating and fully owns both sides of - a brand-new PostgreSQL accessory's password, a brand-new authenticated Redis accessory's password, an internal service token created specifically for this deployment - the Skill MAY generate it automatically instead of leaving a placeholder, provided all of the following hold:
+When a secret primitive belongs entirely to infrastructure the Skill is newly creating and fully owns both sides of - a brand-new PostgreSQL accessory's password, a brand-new authenticated Redis accessory's password, an internal service token created specifically for this deployment - the Skill MAY generate it automatically instead of leaving a placeholder.
 
-- there is no existing production value that needs to be preserved;
-- no external system already expects a specific pre-existing value;
-- the Skill owns creation of both the credential and whatever consumes it (e.g. both the accessory's `POSTGRES_PASSWORD` env and the application's `DATABASE_URL` are being created together, not connecting to something pre-existing).
-
-Generation requirements:
-
-- Use cryptographically secure randomness (e.g. the runtime/OS's CSPRNG - `openssl rand`, `/dev/urandom` via a proper generator, or an equivalent secure source; never a non-cryptographic PRNG).
-- Write the generated value directly into the selected secrets backend - never print it in a report, chat message, log, or commit message.
-- **Never regenerate an existing credential** - check for one first; generating a new value for infrastructure that already has a password in use would break existing connections/data access.
-- **Never generate a third-party credential** (Google, AWS, Resend, Paddle, Stripe, etc.) - those must come from the actual provider, regardless of this rule.
+The full generation policy - the safe/unsafe conditions for generating automatically, CSPRNG/tooling selection, asymmetric key pairs, provider-managed rejection, rotation, backend-specific write strategies, and leak-prevention rules - lives in `agents/patterns/secret-generation.md`. Load it before generating any primitive. In short: generation and secure persistence are one atomic operation, the model never invents secret material itself, an existing real value is never silently overwritten, and third-party/provider-managed credentials are never generated locally. A generated primitive is still stored as a plain category-1 primitive under this file's four-category model - generation never changes which category a value belongs to, and a derived value (category 2/3) is never independently generated.
 
 ## Placeholder policy
 
