@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.1.6 — 2026-10-21
+
+Refines the tier 3 "stop for an explicit architectural decision" path from 1.1.5 with a resolution route that doesn't require relaxing the user's stated requirement outright.
+
+- **Distinguish network-level internal-only from application-level private** in `agents/patterns/multi-service-repo.md`'s tier 3 section: "B must not be reachable from the public Internet at all" is a different, stronger requirement than "B may be reachable through `kamal-proxy`, but its functional endpoints must reject unauthorized external callers." Kamal can't provide the former for an application role via `kamal-proxy` alone (per tier 2's default port-publishing behavior), but it can support the latter without a second reverse proxy.
+- Tier 3's presented options now lead with accepting application-level privacy (instead of only "relax the requirement" or an unspecified architecture change) as a first-class, Kamal-native resolution, still **only** when the user explicitly approves it - the agent must never substitute application-level privacy for a previously stated network-level internal-only requirement on its own judgment.
+- Added concrete server-to-server authentication requirements once application-level privacy is accepted: credentials stay server-side and out of `NEXT_PUBLIC_*`/browser bundles, every sensitive functional endpoint authenticates callers, health/readiness endpoints may stay open for `kamal-proxy` health checks, use a secret/token/HMAC mechanism appropriate to the stack, and store the credential through the normal Kamal secrets mechanism (`.kamal/secrets`) - never hardcoded.
+- Updated the generation gate's `REQUIRED EXPOSURE` field to distinguish `network-level internal-only` from `application-level private, approved`.
+- Added a fixture sub-variant to `tests/fixtures/multi-deployable-unit/EXPECTED.md` covering the user explicitly accepting application-level privacy after a tier 3 stop: the agent must not assume this outcome unprompted, must add the required authentication rather than treating approval as removing the need for any protection, and must still never reach for Traefik/nginx/Caddy/HAProxy.
+- No change to tiers 1-2 or the kamal-proxy-only architectural constraint from 1.1.5; this release only adds a resolution path within tier 3.
+
 ## 1.1.5 — 2026-10-21
 
 Closes out the networking policy work from 1.1.4 with an explicit architectural constraint, after a real-project validation pass considered (and correctly rejected) introducing a second ingress proxy in front of `kamal-proxy` to get "true" internal-only routing.

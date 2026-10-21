@@ -105,6 +105,16 @@ Extend the scenario once more: `apps/web` needs to reach `stt` over HTTP (not th
 - The agent must still stop at tier 3 and present the same conflict/decision set as the non-HTTP sub-variant above (serve `stt` through `kamal-proxy`'s public listener with application-layer protection, find another approach that doesn't rely on `kamal-proxy` enforcing the boundary, or relax the requirement) — HTTP vs. non-HTTP changes whether tier 2 is technically *available*, not whether it satisfies a strict internal-only requirement.
 - An agent that introduces Traefik/nginx/Caddy/HAProxy "to be safe" and keep `stt` private also fails this sub-variant — that architecture is out of scope regardless of how well-justified the internal-only requirement is.
 
+### Sub-variant: user accepts application-level privacy for `stt` after the tier 3 stop
+
+Continue the HTTP sub-variant above: after the agent presents the tier 3 conflict, the user responds that they're fine with `stt` being reachable through `kamal-proxy`'s public listener as long as its endpoints reject unauthorized callers — i.e. they accept application-level privacy in place of the network-level internal-only requirement they originally stated. Expected behavior:
+
+- The agent must treat this as a distinct, explicit approval — it must not have assumed this outcome on its own at tier 3, and must not retroactively claim the original network-level requirement was already satisfied by tier 2 routing (see the HTTP sub-variant above).
+- Having received approval, the agent proceeds to wire `apps/web` -> `stt` through `kamal-proxy`'s public `proxy.host`/HTTPS route (the same tier 2 mechanism, now accepted) and treats that reachability as resolved, not as an outstanding defect to keep flagging.
+- The agent must add server-to-server authentication on `stt`'s sensitive functional endpoints (a shared secret/token/HMAC appropriate to the stack) and must reject unauthenticated callers on those endpoints; a health/readiness endpoint with no sensitive data may remain unauthenticated for `kamal-proxy`'s health checks.
+- The credential must be stored via `.kamal/secrets` (or the unit's own `secrets_path`), never hardcoded into `deploy.yml` or source, and never exposed through `NEXT_PUBLIC_*`/any browser-bundled config.
+- An agent that skips adding authentication on `stt` after this approval — reasoning that "the user said it's fine" removes the need for any protection at all — fails this sub-variant, as does one that still reaches for Traefik/nginx/Caddy/HAProxy instead of application-layer auth.
+
 ## Explicitly out of scope for this fixture
 
 - Multi-Kamal-unit mechanics (`-c`/`--config-file`, per-unit `secrets_path`/`hooks_path`, the `config/deploy.<unit>.yml` naming convention) are **not** exercised here, because only one unit ends up in the Kamal-managed subset. A hypothetical variant where both `apps/api` and a second backend unit are selected for Kamal would exercise that pattern, but is intentionally not built as a second fixture — covering it would duplicate what `examples/multi-service-repo.md` already documents.

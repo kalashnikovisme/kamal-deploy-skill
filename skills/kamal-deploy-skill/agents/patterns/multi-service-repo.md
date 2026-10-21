@@ -105,23 +105,43 @@ The policy is **not** "prefer internal, otherwise fall back to public." It is: p
 
    **This tier is a routing preference, not an access-control guarantee.** `kamal-proxy` publishes ports 80/443 to the host by default, and this Skill does not generate the unpublish-plus-second-ingress architecture some Kamal setups use to change that (see the constraint above). So once B has a `proxy.host` registered with `kamal-proxy`, that route is reachable through `kamal-proxy`'s public listener regardless of which path A happens to use for its own call - routing A's call over the internal Docker network does not, by itself, make B inaccessible to anyone else on the Internet. Do not treat "A reaches B via the internal `kamal-proxy` route" as satisfying a requirement that B be inaccessible from the Internet; those are different questions, and the second one is tier 3's concern.
 
-**3. Stop for an explicit architectural decision.** Reach this tier whenever the user has stated B must be **inaccessible from the Internet** (not merely "prefer internal") - regardless of whether the call itself is HTTP(S) or not. For a non-HTTP(S) protocol, `kamal-proxy` can't route the call at all. For HTTP(S), `kamal-proxy` can route the call, but (per tier 2's note above) doing so means registering B's `proxy.host`, which is reachable from `kamal-proxy`'s public listener by default - so tier 2 does not satisfy a strict internal-only requirement either, and restructuring B's protocol to HTTP(S) does not by itself resolve this conflict. Do not resolve this silently by inventing a hostname, by introducing another reverse proxy, or by exposing B publicly anyway. Present the conflict and the Kamal-native options instead:
+**3. Stop for an explicit architectural decision.** Reach this tier whenever the user has stated B must be **inaccessible from the Internet** (not merely "prefer internal") - regardless of whether the call itself is HTTP(S) or not. For a non-HTTP(S) protocol, `kamal-proxy` can't route the call at all. For HTTP(S), `kamal-proxy` can route the call, but (per tier 2's note above) doing so means registering B's `proxy.host`, which is reachable from `kamal-proxy`'s public listener by default - so tier 2 does not satisfy a strict internal-only requirement either, and restructuring B's protocol to HTTP(S) does not by itself resolve this conflict. Do not resolve this silently by inventing a hostname, by introducing another reverse proxy, or by exposing B publicly anyway.
+
+   **First, disambiguate what "internal-only" actually means**, because the user's stated requirement and the available Kamal-native resolution are two different layers:
+
+   - **Network-level internal-only**: B must not be reachable from the public Internet at all, full stop - no amount of application-layer protection changes this requirement.
+   - **Application-level private**: B may be reachable through `kamal-proxy`'s public listener, but its functional endpoints must reject unauthorized external callers. This is a weaker, different requirement that Kamal *can* support without a second reverse proxy.
+
+   If Kamal cannot provide stable network-level internal-only routing for an application role using `kamal-proxy` alone - which, per tier 2, it cannot for anything registered with a `proxy.host` - do not introduce additional reverse proxies or networking infrastructure to manufacture it. Instead, present the conflict and the Kamal-native options:
 
    ```
    Required communication: frontend-server -> stt
-   Exposure requirement:    STT must be inaccessible from the Internet
+   Exposure requirement:    STT must be inaccessible from the Internet (network-level)
    Constraint:              any route kamal-proxy can serve for STT is reachable from its public
                             listener by default; this Skill does not generate an unpublished-
                             kamal-proxy-plus-second-ingress architecture to change that
    Decision required:
-     - allow STT to be reachable through kamal-proxy's public proxy.host and protect it at the
-       application layer instead (authentication/authorization on the route itself), or
+     - accept application-level privacy instead of network-level internal-only: STT stays
+       reachable through kamal-proxy's public proxy.host, but every sensitive functional
+       endpoint authenticates server-to-server callers and rejects unauthorized requests, or
      - change the application/deployment architecture in some other Kamal-supported way that
        doesn't rely on kamal-proxy enforcing the internal-only boundary, or
-     - relax the strict internal-only requirement for this call
+     - relax the strict network-level internal-only requirement for this call
    ```
 
    Do not recommend Traefik/nginx/Caddy/HAProxy/etc. as one of these options - they are out of scope for this Skill's target architecture (see the constraint above).
+
+   **Resolving via application-level privacy requires explicit user approval, every time.** Prefer `kamal-proxy`'s public route for stable rolling routing once that path is on the table, but never silently substitute application-level privacy for a previously stated network-level internal-only requirement - that is a change to what the user asked for, not an implementation detail. Determine whether application-level authentication is acceptable to the user before proceeding; if they decline, there is nothing left to generate for this dependency (see "If a target-relevant blocker from this section can't be resolved" below).
+
+   Once the user has explicitly accepted application-level privacy for B, apply these rules for the server-to-server authentication itself:
+
+   - Credentials must remain server-side; never expose them through `NEXT_PUBLIC_*` or any other browser-bundled config.
+   - Authenticate every sensitive functional endpoint on B against the caller.
+   - Health/readiness endpoints may remain unauthenticated when they expose no sensitive information and are required for `kamal-proxy`'s health checks.
+   - Use an appropriate secret/token/HMAC mechanism for the application (a shared bearer token, signed request HMAC, mTLS, etc. - pick what fits the stack, this Skill doesn't mandate one specific scheme).
+   - Store the credential through the normal Kamal secrets mechanism (`.kamal/secrets`); never hardcode it in `deploy.yml` or source code.
+
+   Once application-level privacy is explicitly accepted and the authentication above is in place, B's public `kamal-proxy` reachability is not itself a deployment blocker - do not keep flagging it as a defect after this point.
 
 **Never emit a guessed/unverified hostname as a placeholder, at any tier** - "UNVERIFIED" comments do not make a guessed or bare container/service name acceptable; if tier 2 or 3 can't actually be resolved yet, say so and stop (tier 3) rather than filling in something that looks complete.
 
@@ -133,7 +153,7 @@ Before generating any application-role -> application-role URL/hostname in confi
 CALLER:
 CALLEE:
 CALLER EXECUTION CONTEXT:        (browser, or which unit's server/container)
-REQUIRED EXPOSURE:               (public / must-be-internal-only / no stated requirement)
+REQUIRED EXPOSURE:               (public / network-level internal-only / application-level private, approved / no stated requirement)
 ROUTING MECHANISM:               (tier 1 native internal / tier 2 kamal-proxy, same-host or public listener)
 STABLE ENDPOINT:                 (the exact hostname:port to be used)
 WHY ENDPOINT IS STABLE:          (why it survives container replacement)
