@@ -292,20 +292,90 @@ When asked to generate "all missing" (or similar) locally-generatable secrets:
 - Never overwrite any primitive that already holds a real (non-placeholder) value, even if its policy would otherwise allow generation - that would be an unrequested rotation.
 - Report one line per primitive touched, using the Step 14 audit-trail format, plus one line per primitive explicitly skipped and why.
 
-## `bin/secrets generate` (SOPS projects)
+## The reusable `bin/secrets` implementation
 
-Where a project already uses this Skill's SOPS helper (`bin/secrets`), extend it with a generation subcommand following the project's own existing naming conventions (the exact CLI shape is not mandated - the behavior below is):
+This policy is not merely documentation - the Skill ships an actual, installable implementation at `templates/bin/secrets`, plus an example project policy file at `templates/config/secret-generation.yml`. Applying the Skill to a project installs/merges this script as the project's own `bin/secrets` (see "Applying this to a project" below) rather than the agent re-inventing the generation logic each time.
 
+**The command generates secret material. The LLM does not.** When the user asks to generate a secret, the agent executes `bin/secrets generate <NAME>` and nothing else - it never computes, composes, or passes in a value itself (e.g. `bin/secrets generate JWT_SECRET "some-value"` is always wrong; `bin/secrets generate JWT_SECRET` is correct). The script invokes a real CSPRNG or protocol tool internally; the agent's only job is choosing which command to run and relaying its status output.
+
+### Generator registry, not a generic fallback
+
+**Do not implement "every `LOCAL_GENERATABLE` secret gets `openssl rand -base64 48`" as the architecture.** A generic CSPRNG call is one *registered generator type* among several - the project's own policy file explicitly selects it per secret, with its own entropy requirement, rather than the script defaulting every primitive to the same call. The dispatch shape is:
+
+```text
+policy (classification) -> generator (named function) -> generated primitive(s) -> backend adapter
+```
+
+`templates/bin/secrets` ships these generator functions, selected by the policy file's `generator` field, never inferred from the secret's name:
+
+| Generator | Produces | Mechanism |
+|---|---|---|
+| `random_symmetric_key` | HMAC/signing/session secrets | CSPRNG (`openssl rand -base64`), entropy from the policy's `bytes` field, never a hardcoded size |
+| `random_password` | Infrastructure-owned credentials (e.g. `POSTGRES_PASSWORD`) | CSPRNG at full entropy - never charset-restricted to simplify later URI encoding; percent-encoding stays the derived-value's job |
+| `random_token` | Opaque bearer/service tokens | CSPRNG (`openssl rand -hex`), policy-defined entropy |
+| `vapid_key_pair` | A VAPID-compatible EC key pair | Real EC (P-256) key generation via `openssl ecparam`/`openssl ec`, never two independent random strings |
+
+A project with a different asymmetric need (SSH, an RS256/ES256 JWT key pair) gets its own protocol-specific generator function added to the installed copy, following the same registry shape - never bent into the symmetric generators above.
+
+### Project policy file (`config/secret-generation.yml`)
+
+**Secret-generation policy is commit-safe metadata; generated secret material belongs only in the configured secret backend.** The policy file records, per secret name, its policy and generator - never a value:
+
+```yaml
+JWT_SECRET:
+  policy: local_generatable
+  generator: random_symmetric_key
+  bytes: 32  # sized from the project's actual HS256 usage, not a default
+
+POSTGRES_PASSWORD:
+  policy: infrastructure_generatable
+  generator: random_password
+  bytes: 24
+
+GOOGLE_CLIENT_SECRET:
+  policy: provider_managed
+```
+
+This file is generated/updated per project from actual inspection (Steps 1-2 above) when the Skill is applied - `templates/config/secret-generation.yml` is an illustrative template, never copied in verbatim as a project's real policy.
+
+**A placeholder plus `local_generatable` (or another generatable policy) authorizes initial generation. A placeholder plus `existing_value_must_be_preserved` does not.** The latter policy exists specifically so a placeholder in a freshly migrated or partially-filled-in repository cannot be mistaken for permission to generate - e.g.:
+
+```yaml
+LEGACY_SIGNING_KEY:
+  policy: existing_value_must_be_preserved  # production tokens depend on the current value, even though the backend may currently show a placeholder
+```
+
+### Supported commands
+
+- `bin/secrets check` - validates required tools, backend access, policy-file syntax, that every secret has a known policy where required, that generators referenced by policy actually exist, policy/generator combination validity, derived-dependency resolution, and absence of any plaintext leak. Does not require a `provider_managed` secret to already be resolved.
+- `bin/secrets edit` / `bin/secrets show` - the project's existing secret-inspection commands, unchanged by generation support.
+- `bin/secrets policy` / `bin/secrets generate --list` - prints each secret's policy only, never a value, e.g.:
+  ```text
+  JWT_SECRET              LOCAL_GENERATABLE
+  POSTGRES_PASSWORD       INFRASTRUCTURE_GENERATABLE
+  VAPID_KEY_PAIR          PROTOCOL_GENERATABLE
+  GOOGLE_CLIENT_SECRET    PROVIDER_MANAGED
+  ```
 - `bin/secrets generate <NAME>`:
-  1. recognize `<NAME>` from the project's own classified primitive set (not from the name alone);
+  1. recognize `<NAME>` from the project's own policy file (not from the name alone);
   2. look up its generation policy;
-  3. reject immediately (clear message, no generation attempted) if the policy is `PROVIDER_MANAGED` or `GENERATION_POLICY_UNKNOWN`;
-  4. detect whether a real value already exists - if so, require explicit rotation confirmation per Step 10 rather than proceeding;
-  5. generate using the category-appropriate mechanism (Step 3);
-  6. persist directly into SOPS per Step 7's SOPS write strategy;
+  3. reject immediately (clear message, no generation attempted, non-zero exit) if the policy is `provider_managed`, `existing_value_must_be_preserved`, or has no recognized entry at all (`GENERATION_POLICY_UNKNOWN`);
+  4. detect whether a real value already exists even under a generatable policy - if so, refuse (this is rotation, not generation) rather than proceeding;
+  5. generate using the registered generator (Step 3/above);
+  6. persist directly into the configured backend per Step 7's write strategy;
   7. validate per Step 13;
   8. print only status (Step 14's format) - never the value.
-- `bin/secrets generate --missing`: apply the `generate --missing` semantics above, restricted to names the project's own classification has positively identified - never attempt to generate an unrecognized name just because it appears somewhere in `config/deploy.yml`.
+- `bin/secrets generate --missing`: apply the `generate --missing` semantics above, restricted to names the project's own policy file has positively classified - never attempt to generate an unrecognized name just because it appears somewhere in `config/deploy.yml`. A secret with no policy entry is reported skipped as unknown-policy, not silently ignored.
+- `bin/secrets rotate <NAME>` - the only supported path for replacing an existing real value. Distinct from `generate`; requires interactive confirmation of rotation intent, refuses immediately for `provider_managed`/unknown policies, and never adds a casual force-overwrite flag to `generate` itself.
+
+### Applying this to a project
+
+When the Skill configures (or finds already configured) a secrets backend for a project, it also installs the reusable helper:
+
+- **No existing `bin/secrets`:** install `templates/bin/secrets` as the project's `bin/secrets`, and generate `config/secret-generation.yml` from actual project analysis (Steps 1-2 above) rather than copying the template's illustrative entries.
+- **An existing project `bin/secrets`:** never blindly overwrite it. Inspect its current commands/behavior first, preserve anything it already does correctly, and merge in only the generation capability it's missing - treat this the same as any other upgrade-in-place, not a replacement.
+
+A Skill-managed secrets workflow's expected artifacts are now `bin/secrets`, `config/secret-generation.yml`, and the selected backend together - not the backend alone. Once installed, "generate JWT_SECRET" from the user means the agent runs `bin/secrets generate JWT_SECRET`, never a reimplementation of the generation logic inline.
 
 ## Regression coverage
 
