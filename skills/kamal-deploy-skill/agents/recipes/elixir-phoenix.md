@@ -289,3 +289,11 @@ Ensure `config/prod.exs` does not have `check_origin: true` with a fixed list th
 - **Erlang cookie**: Phoenix release clusters require a shared Erlang cookie. For single-node deploys, this is not needed.
 - **Hot code upgrades**: Kamal deploys by replacing containers, not via Erlang hot code upgrades. This is the trade-off for simplicity.
 - **BEAM memory**: Each BEAM process is lightweight, but the VM itself uses ~150-300MB baseline. Ensure the server has adequate RAM.
+
+## Application console
+
+`bin/console` is mandatory - follow `agents/patterns/application-console.md`.
+
+- **Local**: `iex -S mix` (the dispatcher picks it when `mix.exs` exists and no release is configured).
+- **Deployed OTP release** (no `mix` in the image): set `CONSOLE_RELEASE_BIN=/app/bin/<app>` in the console header; it runs `<release> remote`, attaching IEx to the **running** node with its real code and config. Do not use `<release> start_iex` against production (boots a second node). Releases set `RELEASE_NODE`/cookie by default; keep them stable across deploys.
+- Never start the endpoint or Oban/Broadway pipelines just to get a console.

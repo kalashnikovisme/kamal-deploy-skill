@@ -1,0 +1,142 @@
+#!/bin/sh
+# bin/console - application-aware REPL (the closest practical equivalent of `rails console`).
+#
+# Usage:
+#   bin/console                          Local REPL in this application's own runtime environment.
+#   bin/console --local                  Same, explicit. This is what runs INSIDE the container.
+#   bin/console --remote [kamal flags]   Same REPL inside the running Kamal app container.
+#                                        Kamal flags (-d/--destination, -r/--roles, -c/--config-file,
+#                                        -H, -q, ...) are forwarded to `kamal app exec` unmodified.
+#   bin/console --help
+#
+# Remote mode runs: kamal app exec -i --reuse [flags] "sh bin/console --local"
+#   -i      interactive over SSH (docker exec -it), TTY and exit code preserved
+#   --reuse attach to the currently RUNNING container - no new container, no second HTTP
+#           server, no duplicated background processes. Kamal runs interactive commands on
+#           the primary host / primary role; pick another role with -r <role>.
+# The in-container command is `--local`, so the script can never recurse into remote mode.
+# Nothing here opens a network-accessible REPL endpoint.
+#
+# Operating on a production destination can modify production data exactly like
+# `rails console` does. This script does not block that - it never picks production silently:
+# with CONSOLE_REQUIRE_DESTINATION=1 (default) --remote refuses to run without -d/--destination
+# unless the project has no destinations (no config/deploy.*.yml).
+#
+# Copied from a Skill-provided template (skills/kamal-deploy-skill/templates/bin/console).
+# Project-specific edits are fine; re-applying the Skill inspects this file first.
+
+# ---- Generated per project/unit (edit freely) -------------------------------------------
+CONSOLE_DEFAULT_MODE="${CONSOLE_DEFAULT_MODE:-local}"   # local | remote (remote only for legacy remote-first repos)
+CONSOLE_KAMAL_ROOT="${CONSOLE_KAMAL_ROOT:-.}"           # dir (relative to this unit) holding config/deploy*.yml
+CONSOLE_KAMAL_CONFIG="${CONSOLE_KAMAL_CONFIG:-}"        # e.g. config/deploy.api.yml in a multi-deployment repo
+CONSOLE_KAMAL_ROLE="${CONSOLE_KAMAL_ROLE:-}"            # e.g. web / worker when roles share one deployment
+CONSOLE_REQUIRE_DESTINATION="${CONSOLE_REQUIRE_DESTINATION:-1}"
+# -----------------------------------------------------------------------------------------
+
+set -eu
+
+SELF="$(basename "$0")"
+UNIT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+HELPERS="$UNIT_DIR/bin/console.d"
+
+die() { echo "$SELF: $*" >&2; exit 1; }
+
+# ---------------------------------------------------------------- argument handling
+mode="$CONSOLE_DEFAULT_MODE"
+kamal_args_file="$(mktemp 2>/dev/null || echo /tmp/.console.$$)"
+: > "$kamal_args_file"
+trap 'rm -f "$kamal_args_file"' EXIT
+destination=""; have_config=0; have_roles=0
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --local)  mode=local ;;
+    --remote) mode=remote ;;
+    -h|--help) sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -d|--destination) destination="${2:-}"; printf '%s\n%s\n' "$1" "${2:-}" >> "$kamal_args_file"; shift ;;
+    --destination=*)  destination="${1#*=}"; printf '%s\n' "$1" >> "$kamal_args_file" ;;
+    -c|--config-file) have_config=1; printf '%s\n%s\n' "$1" "${2:-}" >> "$kamal_args_file"; shift ;;
+    --config-file=*)  have_config=1; printf '%s\n' "$1" >> "$kamal_args_file" ;;
+    -r|--roles)       have_roles=1; printf '%s\n%s\n' "$1" "${2:-}" >> "$kamal_args_file"; shift ;;
+    --roles=*)        have_roles=1; printf '%s\n' "$1" >> "$kamal_args_file" ;;
+    *) printf '%s\n' "$1" >> "$kamal_args_file" ;;   # other kamal flags forwarded verbatim
+  esac
+  shift
+done
+
+# ---------------------------------------------------------------- remote mode
+if [ "$mode" = remote ]; then
+  command -v kamal >/dev/null 2>&1 || die "kamal is not installed on this machine"
+  [ "$have_config" = 1 ] || [ -z "$CONSOLE_KAMAL_CONFIG" ] || printf '%s\n%s\n' -c "$CONSOLE_KAMAL_CONFIG" >> "$kamal_args_file"
+  [ "$have_roles" = 1 ]  || [ -z "$CONSOLE_KAMAL_ROLE" ]   || printf '%s\n%s\n' -r "$CONSOLE_KAMAL_ROLE" >> "$kamal_args_file"
+
+  cd "$UNIT_DIR/$CONSOLE_KAMAL_ROOT"
+  if [ "$CONSOLE_REQUIRE_DESTINATION" = 1 ] && [ -z "$destination" ] \
+     && ls config/deploy.*.yml >/dev/null 2>&1 && [ "$have_config" = 0 ] && [ -z "$CONSOLE_KAMAL_CONFIG" ]; then
+    # destination files exist but none was named - refuse instead of silently picking one
+    if ls config/deploy.staging.yml config/deploy.production.yml >/dev/null 2>&1; then
+      die "this project has multiple destinations; pass -d <destination> (e.g. $SELF --remote -d staging)"
+    fi
+  fi
+
+  # Optional secrets sourcing for the chosen destination, same convention as bin/deploy.
+  if [ -n "$destination" ] && [ -f ".kamal/secrets-$destination" ]; then set -a; . ".kamal/secrets-$destination"; set +a; fi
+
+  # Rebuild "$@" from the file (newline separated, preserves spaces inside values).
+  set --
+  while IFS= read -r line; do set -- "$@" "$line"; done < "$kamal_args_file"
+  # exec: kamal talks to the real terminal; exit code propagates; no pipes, no captures.
+  exec kamal app exec -i --reuse "$@" "sh bin/$SELF --local"
+fi
+
+# ---------------------------------------------------------------- local mode
+cd "$UNIT_DIR"
+[ -n "$destination" ] && die "-d/--destination only applies to --remote"
+
+has() { [ -e "$1" ]; }
+have_cmd() { command -v "$1" >/dev/null 2>&1; }
+unsupported() {
+  echo "$SELF: no application-aware REPL is available for this stack: $*" >&2
+  echo "$SELF: refusing to fall back to a plain shell - that would not be an application console." >&2
+  exit 2
+}
+
+# Order matters: framework-native consoles first.
+if has artisan && has composer.json; then
+  # Laravel Tinker (laravel/tinker ships with new Laravel apps; it is a runtime dependency).
+  if grep -q '"laravel/tinker"' composer.json 2>/dev/null; then exec php artisan tinker "$@"; fi
+  unsupported "Laravel without laravel/tinker (composer require laravel/tinker, and keep it in the production image)"
+elif has composer.json && grep -q '"symfony/' composer.json 2>/dev/null; then
+  # Symfony owns bin/console (its own CLI). This script must be installed as bin/app-console.
+  if has vendor/bin/psysh; then exec php vendor/bin/psysh "$@"; fi
+  unsupported "Symfony without PsySH (composer require psy/psysh and keep it in the production image)"
+elif has manage.py; then
+  exec "${PYTHON:-python}" manage.py shell "$@"
+elif has mix.exs || [ -n "${CONSOLE_RELEASE_BIN:-}" ]; then
+  # Compiled OTP release (no mix in the image): attach IEx to the RUNNING node's code and config.
+  if [ -n "${CONSOLE_RELEASE_BIN:-}" ] && [ -x "$CONSOLE_RELEASE_BIN" ] && ! have_cmd mix; then
+    exec "$CONSOLE_RELEASE_BIN" remote
+  fi
+  have_cmd iex || unsupported "iex not found (no Elixir toolchain, and CONSOLE_RELEASE_BIN is not set to the release script)"
+  exec iex -S mix "$@"
+elif has package.json; then
+  have_cmd node || die "node not found"
+  [ -f "$HELPERS/node.cjs" ] || die "missing $HELPERS/node.cjs (copy templates/bin/console.d/node.cjs)"
+  exec node "$HELPERS/node.cjs" "$@"
+elif has pyproject.toml || has requirements.txt || has Pipfile || has setup.py; then
+  PY="${PYTHON:-python}"; have_cmd "$PY" || PY=python3
+  # Flask: native shell (app context) when the app is discoverable.
+  if [ -n "${FLASK_APP:-}" ] || has wsgi.py; then
+    if "$PY" -c 'import flask' 2>/dev/null; then exec "$PY" -m flask shell "$@"; fi
+  fi
+  [ -f "$HELPERS/python.py" ] || die "missing $HELPERS/python.py (copy templates/bin/console.d/python.py)"
+  exec "$PY" "$HELPERS/python.py" "$@"
+elif has go.mod; then
+  unsupported "Go compiles to a static binary; arbitrary application packages cannot be loaded into an interpreter (see agents/recipes/go.md, 'Application console')"
+elif has pom.xml || has build.gradle || has build.gradle.kts; then
+  unsupported "JVM: JShell needs a JDK and the application classpath (see agents/recipes/java-spring.md, 'Application console')"
+elif ls ./*.csproj ./*.sln >/dev/null 2>&1; then
+  unsupported ".NET: no REPL ships in runtime images (see agents/recipes/dotnet.md, 'Application console')"
+else
+  unsupported "stack not recognized in $UNIT_DIR"
+fi

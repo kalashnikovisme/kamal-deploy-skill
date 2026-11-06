@@ -292,3 +292,11 @@ servers:
 - **Queue worker restart**: After deploy, restart queue workers: add `php artisan queue:restart` to the `pre-deploy` hook.
 - **Scheduler**: Laravel's scheduler should run via a cron job on the server: `* * * * * cd /var/www/html && php artisan schedule:run >> /dev/null 2>&1`
 - **Symfony**: Replace `php artisan` commands with `php bin/console` equivalents throughout.
+
+## Application console
+
+`bin/console` is mandatory - follow `agents/patterns/application-console.md`.
+
+- **Laravel**: `bin/console` runs `php artisan tinker` locally and in the container. `laravel/tinker` must be in `require` (not `require-dev`) so `composer install --no-dev` keeps it.
+- **Symfony**: `bin/console` is Symfony's own CLI - **never overwrite it**. Install the template as `bin/app-console`, which launches `vendor/bin/psysh`; `psy/psysh` must be a production dependency for remote use. If missing, the script reports it and exits 2.
+- Ensure the image copies `bin/` and that PHP CLI is present (FPM-only images may lack the `php` binary).

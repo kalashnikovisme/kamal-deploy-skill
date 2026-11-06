@@ -16,12 +16,14 @@ This reference documents the operational wrappers used by the Arie repo and simi
 | `bin/deploy` | Deploy the main app to the selected destination |
 | `bin/status` | Show the current deployment state |
 | `bin/logs` | View app logs |
-| `bin/console` | Open the app console |
+| `bin/console` | Application-aware REPL. Local by default; `--remote [-d dest] [-r role]` runs the same REPL inside the running Kamal container (see `agents/patterns/application-console.md`) |
 | `bin/app` | Run app-level Kamal operations such as `restart`, `details`, `start`, and `stop` |
 | `bin/accessory` | Run accessory-level Kamal operations |
 | `bin/remove` | Remove the main app deployment |
 | `bin/lock` | Inspect, acquire, or release the deploy lock |
 | `bin/boot` | Pass through to the underlying Kamal command layer |
+
+`bin/console` is mandatory for every unit (not part of the optional wrapper layer); existing repos where it is already a remote Kamal wrapper keep that meaning, and the local REPL ships as `bin/console-local`. Symfony keeps its own `bin/console`; the REPL there is `bin/app-console`.
 
 ## Staging Secrets
 

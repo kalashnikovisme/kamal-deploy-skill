@@ -31,6 +31,23 @@ A Claude Code / Codex skill for configuring [Kamal](https://kamal-deploy.org/) d
 - Generates a minimal `bin/deploy` wrapper (or per-unit wrappers, for multiple managed units) when the project has no Kamal `bin/` layer yet, guaranteed to forward `-q`/`--quiet`, `-c`/`--config-file`, and all other Kamal flags unmodified
 - Updates the project's README with deployment operations documentation, including a Deployable Units table when more than one unit was discovered
 
+## Application console (`bin/console`)
+
+Every Kamal-managed unit now gets a working `bin/console` by default — an **application-aware REPL**, the closest practical equivalent of `rails console` (not a shell). It is no longer part of the optional wrapper layer; it is created even if other `bin/` wrappers already exist, and an existing app-aware console is preserved.
+
+```bash
+bin/console                      # local REPL
+bin/console --remote -d staging  # same REPL inside the running Kamal container
+```
+
+- **Node.js** (CommonJS, ESM, compiled TypeScript): native REPL with top-level `await`, `load()`, Prisma, a NestJS application context (no HTTP listener), and a project hook (`console.config.cjs`).
+- **Python**: Django `shell`, Flask `shell`, or an IPython/stdlib REPL for FastAPI/plain apps.
+- **PHP**: Laravel Tinker; Symfony keeps its own `bin/console` and gets `bin/app-console` (PsySH). **Elixir**: IEx / release `remote`.
+- **Go, Java/Spring, .NET**: no real application REPL exists in runtime images; the skill reports the limitation and offers an explicit alternative instead of faking a shell.
+- Remote mode runs `kamal app exec -i --reuse <your kamal flags> "sh bin/console --local"` (verified Kamal flags): attaches to the running container, starts no second server, propagates exit codes, never picks a destination silently. A production console can modify production data, like `rails console`.
+
+See `agents/patterns/application-console.md` and `tests/application-console/run_tests.sh`.
+
 ## Supported stacks
 
 | Stack | Frameworks |

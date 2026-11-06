@@ -128,6 +128,7 @@ Also check, for the current unit, whether its cross-cutting situation matches an
 
 - Shells out to a second language runtime, or needs native system packages beyond its primary ecosystem -> load `agents/patterns/additional-runtime-dependencies.md`
 - Bakes a large model/dataset/media asset into the image at build time, or the image is unusually large for its stack -> load `agents/patterns/large-build-artifacts.md`
+- Always (every unit) -> `agents/patterns/application-console.md` is loaded in Step 5.5 for `bin/console`; the recipe's `## Application console` section carries the stack-specific part
 - Has a database and a migration tool -> load `agents/patterns/database-migrations.md` (the recipe's own migration section has the stack-specific command; this pattern has the mechanics and tradeoffs)
 
 **Claude Code paths** for these patterns (resolve using the order in "Runtime and File Loading"): `~/.claude/skills/kamal-deploy-skill/agents/patterns/<file>.md` (fallback: `skills/kamal-deploy-skill/agents/patterns/<file>.md`)
@@ -268,7 +269,8 @@ Repeat Steps 2-5 for every unit in the Kamal-managed subset before moving to Ste
 Check whether the target repo already has a Kamal `bin/` layer (e.g. `bin/deploy`, `bin/setup`).
 
 - **Wrappers already exist (Arie layout or similar)** - do not overwrite them. Skip script creation. In Step 6, document the existing wrappers as-is; do not assume they follow the rules below unless you've read them and confirmed it.
-- **No `bin/` wrappers exist** - create at minimum `bin/deploy`. Create companion wrappers (`bin/setup`, `bin/logs`, `bin/console`, `bin/status`, `bin/remove`, `bin/app`) only if the user wants the fuller operational layer; otherwise document raw `kamal` commands for those in Step 6 instead of inventing wrappers nobody asked for.
+- **No `bin/` wrappers exist** - create at minimum `bin/deploy`. Create companion wrappers (`bin/setup`, `bin/logs`, `bin/status`, `bin/remove`, `bin/app`) only if the user wants the fuller operational layer; otherwise document raw `kamal` commands for those in Step 6 instead of inventing wrappers nobody asked for.
+- **`bin/console` is NOT part of that optional layer - it is mandatory for every Kamal-managed unit, regardless of what other wrappers exist or what the user asked for.** Load `agents/patterns/application-console.md` and follow it in full (Claude Code: Read `~/.claude/skills/kamal-deploy-skill/agents/patterns/application-console.md`, fallback `skills/kamal-deploy-skill/agents/patterns/application-console.md`), together with the `## Application console` section of the unit's recipe. It defines the reusable `templates/bin/console` implementation, the install rules (missing / existing app-aware / existing remote wrapper / framework-owned like Symfony / unsupported stack), the Docker checklist and the multi-unit routing. Never generate a plain shell as a console; for stacks without a real REPL, report the limitation instead.
 - **Multiple Kamal-managed units** - follow the "bin/ wrappers in a multi-unit repo" section of `agents/patterns/multi-service-repo.md` to decide between per-unit wrappers and a single wrapper with a required unit argument. Either way, the forwarding rules below still apply without exception.
 
 ### Wrapper rules (mandatory)
@@ -375,8 +377,11 @@ bin/logs --follow
 
 ### Console and App Ops
 
+`bin/console` is the application-aware REPL (always present, see `agents/patterns/application-console.md`). Document the local and remote forms the generated script actually supports, plus the stack limitations that apply, and the production-mutation warning:
+
 ```bash
-bin/console
+bin/console                      # local REPL
+bin/console --remote -d staging  # same REPL inside the running Kamal container
 bin/app restart
 bin/app details
 ```
@@ -482,6 +487,7 @@ The `examples/` directory contains annotated deploy.yml snippets. Load the relev
 | `examples/multi-destination.md` | Staging + production destinations |
 | `examples/local-registry.md` | Local registry (`registry.server: localhost:5555`) |
 | `examples/remote-builder.md` | Remote builder (`builder.remote`) |
+| `examples/application-console.md` | `bin/console` local/remote sessions for Node.js, Python and Laravel |
 | `examples/multi-service-repo.md` | Two Kamal-managed units from one repo (`-c`/`--config-file`, per-unit `secrets_path`/`hooks_path`) |
 
 **Claude Code paths** (resolve using the order in "Runtime and File Loading"): `~/.claude/skills/kamal-deploy-skill/examples/<file>.md`

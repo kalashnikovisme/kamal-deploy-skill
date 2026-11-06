@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.7.0 — 2026-11-06
+
+Makes `bin/console` a mandatory, Rails-console-style application REPL for every Kamal-managed unit instead of an optional wrapper.
+
+- **New pattern** `agents/patterns/application-console.md`: universal acceptance criteria, install rules (missing / existing app-aware / existing remote wrapper -> `bin/console-local` / Symfony -> `bin/app-console` / unsupported stack), Docker checklist, per-stack strategy table, multi-unit routing, production-safety note.
+- **New reusable implementation**: `templates/bin/console` (POSIX `sh` dispatcher; local REPL, `--remote` via verified `kamal app exec -i --reuse`, `--local` in-container to avoid recursion, no silent destination choice, exit-code propagation, honest exit 2 for unsupported stacks) plus `templates/bin/console.d/node.cjs` (CJS/ESM/compiled TS, NestJS application context, Prisma, `console.config.*` hook) and `console.d/python.py` (IPython/stdlib, FastAPI `app` only if importable). Django/Flask/Tinker/PsySH/IEx use their native consoles.
+- **SKILL.md Step 5.5**: `bin/console` removed from the optional wrappers; always created, loads the pattern. Step 6 documents local/remote forms.
+- **Recipes**: new `## Application console` sections (Node, Next.js, Python, Laravel/Symfony, Elixir, Go, Java, .NET, unknown). Go/JVM/.NET report limitations rather than faking a shell.
+- **Tests**: `tests/application-console/run_tests.sh` (18 executable checks: CJS, ESM, compiled TS, NestJS mock, Python, remote args via fake kamal, multi-unit mixed stacks, Symfony, unsupported stacks, optional container run) and `tests/fixtures/application-console/EXPECTED.md`.
+- README, `references/kamal-commands.md`, `references/deploy-yml-reference.md` alias, and `examples/application-console.md` updated.
+
 ## 1.6.0 — 2026-10-22
 
 Ships secret generation as an actual, reusable, executable capability instead of only documented behavior, so applying the Skill no longer requires an agent to reinvent `bin/secrets generate` from prose.

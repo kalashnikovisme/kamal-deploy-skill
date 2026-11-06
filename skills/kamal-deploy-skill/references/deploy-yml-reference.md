@@ -172,7 +172,7 @@ logging:
 
 ```yaml
 aliases:
-  console: app exec -i --reuse 'bin/console'
+  console: app exec -i --reuse 'sh bin/console --local'
   shell: app exec -i --reuse bash
   logs: app logs --follow
   migrate: app exec --reuse 'bin/rails db:migrate'

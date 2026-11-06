@@ -286,3 +286,12 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 - **Django `ALLOWED_HOSTS`**: Must include the server IP and domain. Pass as a secret or clear env var.
 - **Database migrations**: Decide on the migration strategy before first deploy. Running migrations in a hook is simple but may cause downtime on large tables.
 - **Celery workers**: If the project uses Celery, add a separate `worker` role in `servers` section pointing to the same or a different host, with a different CMD.
+
+## Application console
+
+`bin/console` is mandatory - follow `agents/patterns/application-console.md`.
+
+- **Django**: native `python manage.py shell` (models auto-imported). Ensure `manage.py` is in the runtime image.
+- **Flask**: `flask shell` (app context) when `FLASK_APP` is set or `wsgi.py` exists; set `FLASK_APP` in `deploy.yml` `env.clear` if the factory isn't auto-discoverable.
+- **FastAPI / plain**: install `templates/bin/console.d/python.py`. It puts the project root on `sys.path`, loads `.env` without overriding the real environment, exposes `app` only if `app.main`/`main`/`app` really exports a FastAPI/Starlette instance (no server started), and uses IPython (autoawait) when installed, otherwise the stdlib REPL (`asyncio.run(...)` for coroutines). Use `console_config.py` (`def context() -> dict`) to expose real session factories/clients.
+- Make sure the virtualenv's interpreter is `python` on PATH in the image (or set `PYTHON`), and that `bin/` is copied.

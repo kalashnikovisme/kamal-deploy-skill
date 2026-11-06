@@ -192,3 +192,11 @@ Adapt the command to the actual migration tool used in the project. If no migrat
 - **Embedded files**: If using `//go:embed`, ensure the source files are present in the builder stage and properly addressed.
 - **Air / hot reload**: Do not use Air or other hot-reload tools in the production Dockerfile. These are development-only tools.
 - **`FROM scratch` and TLS**: Always copy CA certificates from the builder when using `FROM scratch`, or HTTPS calls from the app will fail.
+
+## Application console
+
+Go compiles to a static binary; arbitrary application packages cannot be loaded into an interpreter at runtime. Interpreters such as Yaegi can only run source-level Go and cannot link the compiled app's packages, CGO, or generics/reflection edge cases reliably - installing one would give a false impression of Rails-console equivalence, so this skill does **not** do that.
+
+- Still install `templates/bin/console` (per `agents/patterns/application-console.md`): it detects `go.mod`, prints the limitation, and exits 2 - it never falls back to a shell.
+- Offer the user a genuine alternative and implement it only on request: a project-owned admin subcommand in the same binary (e.g. `./app admin <task>`) invoked remotely with `kamal app exec -i --reuse "./app admin <task>"`, which runs real application code (services, DB) inside the deployed container.
+- Report in Step 7 that no interactive application REPL exists for this unit.

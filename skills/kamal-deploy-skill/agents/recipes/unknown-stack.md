@@ -153,3 +153,7 @@ If the stack identified by the user is a mainstream framework (e.g., Rust/Actix,
 > "This stack doesn't have a dedicated recipe yet. The configuration above was created specifically for your project. If you'd like this to become a reusable recipe in the kamal-deploy-skill, consider opening a PR at the skill's repository."
 
 Then proceed with the custom configuration.
+
+## Application console
+
+`bin/console` is still mandatory - follow `agents/patterns/application-console.md`. Identify the language/framework and pick its best native REPL (Node -> `console.d/node.cjs`; Python -> Django/Flask shell or `console.d/python.py`; PHP -> Tinker/PsySH; Elixir -> IEx; Ruby non-Rails -> `irb -r ./<entrypoint>`). If none is genuinely application-aware, install the dispatcher anyway (it prints the limitation, exits 2) or skip it, and say so in the summary. Never create a script that merely opens `sh`/`bash`.

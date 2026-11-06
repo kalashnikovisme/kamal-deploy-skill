@@ -217,3 +217,11 @@ The startup approach is simpler for small projects but adds startup time. The ho
 - **Blazor Server**: Blazor Server requires persistent connections (WebSockets/SignalR). Ensure the proxy does not have a very short response timeout; increase `proxy.response_timeout` if needed.
 - **Blazor WebAssembly**: Static files only — Kamal is not ideal for pure WASM apps. Consider a CDN. If combined with an API backend, deploy only the API through Kamal and serve WASM separately.
 - **`--self-contained`**: Publishing self-contained (`dotnet publish --self-contained true`) produces a larger image but removes the need for the ASP.NET Core runtime base image. Only use it if needed.
+
+## Application console
+
+Runtime images (`mcr.microsoft.com/dotnet/aspnet`) contain no REPL or compiler, and `csi`/`dotnet-script` need an SDK and do not bootstrap the app's `IServiceProvider`.
+
+- Install `templates/bin/console` (per `agents/patterns/application-console.md`): for .NET units it reports the limitation and exits 2.
+- Do not put the SDK in the production image for this. On request, offer a project-owned admin command (e.g. `dotnet App.dll --admin <task>` building the host without Kestrel) run via `kamal app exec -i --reuse`, or a local-only `dotnet-script` setup.
+- Report the limitation in the Step 7 summary.

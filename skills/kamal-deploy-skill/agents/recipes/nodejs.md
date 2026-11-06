@@ -286,3 +286,14 @@ Confirm the chosen migration tool's CLI is present in the **runner** stage of th
 - **NestJS**: Adjust `dist/main.js` to the actual compiled entry point from `tsconfig.json` `outDir`.
 - **Node version**: Match the Node version in the Dockerfile to the project's `.nvmrc` or `engines.node`.
 - **Package manager**: Adjust `npm ci`/`yarn --frozen-lockfile`/`pnpm i --frozen-lockfile` based on which lockfile is present.
+
+## Application console
+
+`bin/console` is mandatory - follow `agents/patterns/application-console.md` (install `templates/bin/console` + `templates/bin/console.d/node.cjs`).
+
+- **Module system**: CommonJS and native ESM both work (`load('./x.js')` / `await import()`); never assume `require` for ESM-only packages.
+- **TypeScript**: the console loads what the final image contains - compiled output (`dist/`, `build/`). Do not add `tsx`/`ts-node` to production images. If the runtime stage copies only `dist/` + prod `node_modules`, the console targets those paths. Locally, build first (`npm run build`).
+- **NestJS**: uses `NestFactory.createApplicationContext` on compiled `dist/app.module.js` (also under `dist/src/`): exposes `app` and `get(Token)`; no HTTP listener; `app.close()` on exit. Ensure the final Docker stage includes `nest-cli.json`-resolved output.
+- **Express/Fastify**: there is no DI container. Export the app's services/db client from a module and expose them through a small project-owned `console.config.cjs` (contract in `node.cjs` header) - do not invent services.
+- **Prisma**: exposed as `prisma`/`db` only when `@prisma/client` is generated in the image. **TypeORM and others**: use the hook (data source config is app-specific).
+- Ensure `.dockerignore` does not exclude `bin/`, and the runtime stage copies `bin/`.

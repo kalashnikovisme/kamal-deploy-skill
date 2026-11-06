@@ -318,3 +318,11 @@ Add to `.gitignore`:
   # or: kamal app exec --reuse "node scripts/migrate.js"
   ```
   Make executable: `chmod +x .kamal/hooks/pre-deploy`
+
+## Application console
+
+`bin/console` is mandatory - follow `agents/patterns/application-console.md` (Node.js strategy: `templates/bin/console` + `console.d/node.cjs`).
+
+- Provides a Node REPL with env loaded and `load()` for server-side modules **present in the image**. With `output: 'standalone'` the runtime image contains only traced files - copy `bin/` into the runner stage, and note modules not traced into `.next/standalone` cannot be loaded.
+- Do **not** promise Next internals, server components, route handlers or `@/` path aliases outside the Next runtime. Expose real server modules through a `console.config.cjs` hook that imports compiled/plain-JS modules by relative path.
+- Prisma is exposed as `prisma`/`db` when the generated client is in the image.

@@ -256,3 +256,11 @@ This approach depends on the specific project setup. For most Spring Boot projec
 - **Maven wrapper**: Commit `mvnw` and `.mvn/` to version control so Docker builds don't need Maven installed.
 - **Gradle wrapper**: Commit `gradlew` and `gradle/` to version control.
 - **Quarkus**: Quarkus has its own fast-startup JVM mode and native mode. For native, the Dockerfile changes substantially — use the Quarkus container image guide.
+
+## Application console
+
+JShell needs a JDK and the application classpath; runtime images normally contain only a JRE, and a Spring `ApplicationContext` is not exposed to JShell automatically.
+
+- Install `templates/bin/console` (per `agents/patterns/application-console.md`): for JVM units it reports the limitation and exits 2 instead of faking a shell.
+- Do not add a JDK to the production image just for a console. If the user wants one, offer (on request) a dev-only path: `jshell --class-path <fat-jar-or-classpath>` locally with `ConfigurableApplicationContext ctx = SpringApplication.run(App.class, "--spring.main.web-application-type=none")` typed into the session (no web server), clearly labeled local-only.
+- Report the limitation in the Step 7 summary.
