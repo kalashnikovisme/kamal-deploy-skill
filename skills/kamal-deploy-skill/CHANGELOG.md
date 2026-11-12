@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.8.0 — 2026-11-12
+
+Secrets and their files are now **per environment by default**. Previously the Skill produced a single shared `config/secrets.sops.yaml`, a single `.kamal/secrets` (plus a shared `.kamal/secrets-common`) and a `bin/secrets` with no notion of environment, so production and non-production values lived side by side and one command could touch either.
+
+- **Default layout**: one encrypted file per environment, `config/secrets/<environment>.sops.yaml` (one `.sops.yaml` creation rule each, so every environment can later have its own readers); one `.kamal/secrets.<destination>` per Kamal destination; `.kamal/secrets-common` shared and **value-free**. Even a single-environment project names its environment `production` (`config/deploy.production.yml`, `bin/deploy -d production`), so adding `staging`/`development` is a new file, not a migration. Documented in `agents/patterns/secrets-sops-age.md` ("Repository layout", "Environment rules"), including the Kamal mechanic behind it, verified against Kamal 2.12's `Kamal::Secrets#secrets_filenames`: with `-d <destination>` Kamal reads `<secrets_path>-common` and `<secrets_path>.<destination>`; the plain `.kamal/secrets` is read only when no destination is passed.
+- **`templates/bin/secrets` is environment-first**: `bin/secrets <environment> <command>` (`bin/secrets production edit`, `bin/secrets development edit`). There is deliberately no default environment; a command without one is refused with a pointer to the new form, an unknown or invalid environment is refused without creating anything, and `edit` bootstraps the file for a new environment. Each environment reads and writes only its own file, so generating in `development` cannot touch production.
+- **New `bin/secrets <env> value NAME`**: prints exactly one value from that environment's file and fails closed on a missing/empty value; it is what `.kamal/secrets.<env>` lines call (`JWT_SECRET=$(bin/secrets production value JWT_SECRET)`). Project-specific derived values (e.g. `DATABASE_URL`) are added as branches in `cmd_value`.
+- **`bin/secrets <env> check` knows what an environment is**: an environment is a Kamal destination iff `config/deploy.<env>.yml` exists. Destinations additionally fail on literal values in `.kamal/secrets.<env>`, on a destination file that reads another environment, and on values in `.kamal/secrets-common`, and run `kamal config -d <env>`. Other environments (e.g. `development`) only need to decrypt.
+- **`bin/deploy`/`bin/setup` template** requires/derives the destination and runs `bin/secrets <destination> check` for exactly that destination.
+- **Bug fix**: `templates/bin/console`, `examples/multi-destination.md` and the `bin/deploy` template used `.kamal/secrets-<destination>` (hyphen), which Kamal never reads; corrected to `.kamal/secrets.<destination>`.
+- **Recipes, patterns, examples, README, AGENTS.md/CLAUDE.md, `references/deploy-yml-reference.md`** updated to the per-destination files and environment-first commands; new migration guidance for turning a single shared secrets file into per-environment files.
+- **Tests**: `tests/secret-generation/run_tests.sh` moved to the new layout and gained Cases L-O (environment required, unknown/invalid environment refused, environment isolation including byte-identical production file after a development write, `value` fails closed, Kamal destination checks incl. cross-environment reads and values in `secrets-common`): 35 checks.
+- Existing projects keep working until re-applied; re-applying the Skill follows the migration section in `agents/patterns/secrets-sops-age.md` instead of overwriting.
+
 ## 1.7.0 — 2026-11-06
 
 Makes `bin/console` a mandatory, Rails-console-style application REPL for every Kamal-managed unit instead of an optional wrapper.

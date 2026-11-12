@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Executable regression tests for templates/bin/secrets.
+# Executable regression tests for templates/bin/secrets (environment-first CLI:
+# bin/secrets <environment> <command>, one encrypted file per environment).
 #
 # Builds a throwaway SOPS + age project in a temp directory, exercises the
 # generated bin/secrets template against it, and asserts both behavior
@@ -43,7 +44,7 @@ cleanup() { rm -rf "$WORKDIR"; }
 trap cleanup EXIT
 
 PROJECT="$WORKDIR/project"
-mkdir -p "$PROJECT/bin" "$PROJECT/config" "$PROJECT/.kamal"
+mkdir -p "$PROJECT/bin" "$PROJECT/config/secrets" "$PROJECT/.kamal"
 cp "$BIN_SECRETS_TEMPLATE" "$PROJECT/bin/secrets"
 chmod +x "$PROJECT/bin/secrets"
 
@@ -55,7 +56,9 @@ cd "$PROJECT"
 
 cat >"$PROJECT/.sops.yaml" <<EOF
 creation_rules:
-  - path_regex: config/secrets\.sops\.yaml\$
+  - path_regex: config/secrets/production\.sops\.yaml\$
+    age: $AGE_PUBLIC
+  - path_regex: config/secrets/development\.sops\.yaml\$
     age: $AGE_PUBLIC
 EOF
 
@@ -70,8 +73,8 @@ cat >"$WORKDIR/seed.json" <<'EOF'
 EOF
 
 sops --encrypt --input-type json --output-type yaml \
-  --filename-override config/secrets.sops.yaml "$WORKDIR/seed.json" \
-  >"$PROJECT/config/secrets.sops.yaml"
+  --filename-override config/secrets/production.sops.yaml "$WORKDIR/seed.json" \
+  >"$PROJECT/config/secrets/production.sops.yaml"
 
 cat >"$PROJECT/config/secret-generation.yml" <<'EOF'
 JWT_SECRET:
@@ -100,15 +103,14 @@ VAPID_KEY_PAIR:
   public_target: clear
 EOF
 
-touch "$PROJECT/.kamal/secrets"
 cd "$PROJECT"
 
 decrypt_value() {
-  sops --decrypt --output-type json config/secrets.sops.yaml 2>/dev/null | jq -r --arg k "$1" '.[$k] // empty'
+  sops --decrypt --output-type json config/secrets/production.sops.yaml 2>/dev/null | jq -r --arg k "$1" '.[$k] // empty'
 }
 
 # --- Case A: missing HMAC JWT secret ---------------------------------------
-OUT="$(./bin/secrets generate JWT_SECRET 2>&1)"
+OUT="$(./bin/secrets production generate JWT_SECRET 2>&1)"
 RC=$?
 if [[ "$RC" -eq 0 ]]; then
   pass "Case A: generate JWT_SECRET exits 0"
@@ -129,7 +131,7 @@ fi
 
 # --- Case B: existing JWT secret -> refuse, no overwrite -------------------
 BEFORE="$(decrypt_value JWT_SECRET)"
-OUT="$(./bin/secrets generate JWT_SECRET 2>&1)"
+OUT="$(./bin/secrets production generate JWT_SECRET 2>&1)"
 RC=$?
 AFTER="$(decrypt_value JWT_SECRET)"
 if [[ "$RC" -ne 0 ]]; then
@@ -144,7 +146,7 @@ else
 fi
 
 # --- Case C: existing real value under a plain local_generatable policy ----
-OUT="$(./bin/secrets generate EXISTING_SIGNING_SECRET 2>&1)"
+OUT="$(./bin/secrets production generate EXISTING_SIGNING_SECRET 2>&1)"
 RC=$?
 if [[ "$RC" -ne 0 ]]; then
   pass "Case C: generating over an existing real value refuses"
@@ -153,7 +155,7 @@ else
 fi
 
 # --- Case D: provider-managed secret ----------------------------------------
-OUT="$(./bin/secrets generate GOOGLE_CLIENT_SECRET 2>&1)"
+OUT="$(./bin/secrets production generate GOOGLE_CLIENT_SECRET 2>&1)"
 RC=$?
 VAL="$(decrypt_value GOOGLE_CLIENT_SECRET)"
 if [[ "$RC" -ne 0 ]] && [[ "$VAL" == "TODO_FILL_IN" ]]; then
@@ -163,7 +165,7 @@ else
 fi
 
 # --- Case E: unknown secret ---------------------------------------------
-OUT="$(./bin/secrets generate SOME_VENDOR_SECRET 2>&1)"
+OUT="$(./bin/secrets production generate SOME_VENDOR_SECRET 2>&1)"
 RC=$?
 VAL="$(decrypt_value SOME_VENDOR_SECRET)"
 if [[ "$RC" -ne 0 ]] && [[ "$VAL" == "TODO_FILL_IN" ]]; then
@@ -173,7 +175,7 @@ else
 fi
 
 # --- Case F: fresh PostgreSQL password --------------------------------------
-OUT="$(./bin/secrets generate POSTGRES_PASSWORD 2>&1)"
+OUT="$(./bin/secrets production generate POSTGRES_PASSWORD 2>&1)"
 RC=$?
 VAL="$(decrypt_value POSTGRES_PASSWORD)"
 if [[ "$RC" -eq 0 ]] && [[ -n "$VAL" ]] && [[ "$VAL" != "TODO_FILL_IN" ]]; then
@@ -181,14 +183,14 @@ if [[ "$RC" -eq 0 ]] && [[ -n "$VAL" ]] && [[ "$VAL" != "TODO_FILL_IN" ]]; then
 else
   fail "Case F: POSTGRES_PASSWORD generation failed"
 fi
-if sops --decrypt --output-type json config/secrets.sops.yaml 2>/dev/null | jq -e 'has("DATABASE_URL")' >/dev/null 2>&1; then
+if sops --decrypt --output-type json config/secrets/production.sops.yaml 2>/dev/null | jq -e 'has("DATABASE_URL")' >/dev/null 2>&1; then
   fail "Case F: DATABASE_URL was stored independently (must remain derived)"
 else
   pass "Case F: DATABASE_URL was not independently stored"
 fi
 
 # --- Case G: generate --missing ---------------------------------------------
-OUT="$(./bin/secrets generate --missing 2>&1)"
+OUT="$(./bin/secrets production generate --missing 2>&1)"
 if printf '%s' "$OUT" | grep -q "GOOGLE_CLIENT_SECRET.*SKIPPED provider-managed"; then
   pass "Case G: --missing skips provider-managed secret"
 else
@@ -209,7 +211,7 @@ fi
 UNWRITABLE_DIR="$WORKDIR/unwritable"
 mkdir -p "$UNWRITABLE_DIR"
 chmod 555 "$UNWRITABLE_DIR"
-OUT="$(SOPS_FILE="$UNWRITABLE_DIR/secrets.sops.yaml" ./bin/secrets generate JWT_SECRET 2>&1)"
+OUT="$(SOPS_FILE="$UNWRITABLE_DIR/secrets.sops.yaml" ./bin/secrets production generate JWT_SECRET 2>&1)"
 RC=$?
 chmod 755 "$UNWRITABLE_DIR"
 if [[ "$RC" -ne 0 ]]; then
@@ -228,7 +230,7 @@ fi
 # missing and protocol_generatable), so a second explicit generate here
 # correctly refuses to replace the now-existing private key - that refusal
 # is itself the expected "no silent overwrite" behavior, not a failure.
-OUT="$(./bin/secrets generate VAPID_KEY_PAIR 2>&1)"
+OUT="$(./bin/secrets production generate VAPID_KEY_PAIR 2>&1)"
 RC=$?
 PRIV="$(decrypt_value VAPID_PRIVATE_KEY)"
 PUB_IN_SOPS="$(decrypt_value VAPID_PUBLIC_KEY)"
@@ -266,6 +268,109 @@ if [[ -n "$PRIV" ]] && [[ "${#PRIV}" -ge 40 ]]; then
 else
   fail "Case K: asymmetric key material does not look protocol-generated"
 fi
+
+# --- Case L: the environment is a required first argument -------------------
+OUT="$(./bin/secrets generate JWT_SECRET 2>&1)"; RC=$?
+if [[ "$RC" -ne 0 ]] && grep -q "environment is the first argument" <<<"$OUT"; then
+  pass "Case L: legacy 'bin/secrets <command>' without an environment is refused with a pointer to the new form"
+else
+  fail "Case L: command without environment was not refused (rc=$RC)"
+fi
+OUT="$(./bin/secrets staging check 2>&1)"; RC=$?
+if [[ "$RC" -ne 0 ]] && [[ ! -e config/secrets/staging.sops.yaml ]]; then
+  pass "Case L: an unknown environment is refused and no file is created for it"
+else
+  fail "Case L: unknown environment was not refused cleanly (rc=$RC)"
+fi
+OUT="$(./bin/secrets Production check 2>&1)"; RC=$?
+if [[ "$RC" -ne 0 ]]; then
+  pass "Case L: an invalid environment name is refused"
+else
+  fail "Case L: invalid environment name was accepted"
+fi
+
+# --- Case M: environments are isolated files --------------------------------
+EDITOR=true ./bin/secrets development edit >/dev/null 2>&1
+if [[ -f config/secrets/development.sops.yaml ]] && grep -q '^sops:' config/secrets/development.sops.yaml; then
+  pass "Case M: 'bin/secrets development edit' creates an encrypted development file"
+else
+  fail "Case M: development file was not created/encrypted"
+fi
+PROD_BEFORE="$(sha256sum config/secrets/production.sops.yaml | cut -d' ' -f1)"
+OUT="$(./bin/secrets development generate JWT_SECRET 2>&1)"; RC=$?
+DEV_JWT="$(sops --decrypt --output-type json config/secrets/development.sops.yaml 2>/dev/null | jq -r '.JWT_SECRET // empty')"
+PROD_AFTER="$(sha256sum config/secrets/production.sops.yaml | cut -d' ' -f1)"
+if [[ "$RC" -eq 0 ]] && [[ -n "$DEV_JWT" ]] && [[ "$DEV_JWT" != "$VAL" ]]; then
+  pass "Case M: generating in development stores a different value in the development file"
+else
+  fail "Case M: development generation failed or reused the production value (rc=$RC)"
+fi
+if [[ "$PROD_BEFORE" == "$PROD_AFTER" ]]; then
+  pass "Case M: the production file is byte-for-byte untouched by development writes"
+else
+  fail "Case M: development write modified the production file"
+fi
+OUT="$(./bin/secrets development value GOOGLE_CLIENT_SECRET 2>&1)"; RC=$?
+if [[ "$RC" -ne 0 ]] && ! grep -q "TODO_FILL_IN" <<<"$OUT"; then
+  pass "Case M: a production-only secret is not visible from the development environment"
+else
+  fail "Case M: development environment can read a production value (rc=$RC)"
+fi
+
+# --- Case N: 'value' fails closed and prints only the value ----------------
+OUT="$(./bin/secrets production value EXISTING_SIGNING_SECRET 2>/dev/null)"; RC=$?
+if [[ "$RC" -eq 0 ]] && [[ "$OUT" == "a-genuine-existing-credential-value-123" ]]; then
+  pass "Case N: 'value' prints exactly the stored value and nothing else"
+else
+  fail "Case N: 'value' output unexpected (rc=$RC)"
+fi
+if ./bin/secrets production value DOES_NOT_EXIST >/dev/null 2>&1; then
+  fail "Case N: 'value' did not fail closed for a missing secret"
+else
+  pass "Case N: 'value' fails closed (non-zero) for a missing secret"
+fi
+
+# --- Case O: Kamal destination files (check) -------------------------------
+# An environment is a Kamal destination iff config/deploy.<env>.yml exists.
+printf '{}\n' >config/deploy.production.yml
+printf 'JWT_SECRET=$(bin/secrets production value JWT_SECRET)\n' >.kamal/secrets.production
+run_check() { ./bin/secrets "$1" check >"$WORKDIR/check-out.txt" 2>&1; }
+run_check production
+if grep -q "only reads the production environment" "$WORKDIR/check-out.txt"; then
+  pass "Case O: check accepts .kamal/secrets.production that reads only the production environment"
+else
+  fail "Case O: check did not accept a valid .kamal/secrets.production"
+fi
+printf 'JWT_SECRET=$(bin/secrets development value JWT_SECRET)\n' >.kamal/secrets.production
+run_check production
+if grep -q "reads values from another environment" "$WORKDIR/check-out.txt"; then
+  pass "Case O: check rejects a production Kamal file that reads the development environment"
+else
+  fail "Case O: check did not detect cross-environment secret reads"
+fi
+printf 'JWT_SECRET=literal-value\n' >.kamal/secrets.production
+run_check production
+if grep -q "literal" "$WORKDIR/check-out.txt"; then
+  pass "Case O: check rejects a literal value in .kamal/secrets.production"
+else
+  fail "Case O: check did not detect a literal value"
+fi
+printf 'JWT_SECRET=$(bin/secrets production value JWT_SECRET)\n' >.kamal/secrets.production
+printf 'SHARED=$(bin/secrets production value JWT_SECRET)\n' >.kamal/secrets-common
+run_check production
+if grep -q "secrets-common defines values" "$WORKDIR/check-out.txt"; then
+  pass "Case O: check rejects secrets in the shared .kamal/secrets-common"
+else
+  fail "Case O: check did not reject values in .kamal/secrets-common"
+fi
+rm -f .kamal/secrets-common
+run_check development
+if grep -q "SKIP no config/deploy.development.yml" "$WORKDIR/check-out.txt"; then
+  pass "Case O: a non-deploy environment (development) skips Kamal destination checks"
+else
+  fail "Case O: development check did not skip Kamal destination checks"
+fi
+rm -f config/deploy.production.yml .kamal/secrets.production
 
 # --- Leak sweep across all captured outputs in this run ---------------------
 ALL_SECRET_VALUES=("$VAL" "$PRIV")

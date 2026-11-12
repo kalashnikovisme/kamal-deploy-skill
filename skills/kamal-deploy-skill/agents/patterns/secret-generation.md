@@ -294,9 +294,11 @@ When asked to generate "all missing" (or similar) locally-generatable secrets:
 
 ## The reusable `bin/secrets` implementation
 
+Every command is **environment-first**: `bin/secrets <environment> <command>` (e.g. `bin/secrets production generate JWT_SECRET`, `bin/secrets development edit`). There is no default environment, and each environment reads and writes only its own file, `config/secrets/<environment>.sops.yaml` - generating into `development` can never touch production values. See `agents/patterns/secrets-sops-age.md` "Repository layout". The examples below omit the environment only where the text says "the command"; the real invocation always includes it.
+
 This policy is not merely documentation - the Skill ships an actual, installable implementation at `templates/bin/secrets`, plus an example project policy file at `templates/config/secret-generation.yml`. Applying the Skill to a project installs/merges this script as the project's own `bin/secrets` (see "Applying this to a project" below) rather than the agent re-inventing the generation logic each time.
 
-**The command generates secret material. The LLM does not.** When the user asks to generate a secret, the agent executes `bin/secrets generate <NAME>` and nothing else - it never computes, composes, or passes in a value itself (e.g. `bin/secrets generate JWT_SECRET "some-value"` is always wrong; `bin/secrets generate JWT_SECRET` is correct). The script invokes a real CSPRNG or protocol tool internally; the agent's only job is choosing which command to run and relaying its status output.
+**The command generates secret material. The LLM does not.** When the user asks to generate a secret, the agent executes `bin/secrets <environment> generate <NAME>` and nothing else - it never computes, composes, or passes in a value itself (e.g. `bin/secrets <environment> generate JWT_SECRET "some-value"` is always wrong; `bin/secrets <environment> generate JWT_SECRET` is correct). The script invokes a real CSPRNG or protocol tool internally; the agent's only job is choosing which command to run and relaying its status output.
 
 ### Generator registry, not a generic fallback
 
@@ -347,16 +349,16 @@ LEGACY_SIGNING_KEY:
 
 ### Supported commands
 
-- `bin/secrets check` - validates required tools, backend access, policy-file syntax, that every secret has a known policy where required, that generators referenced by policy actually exist, policy/generator combination validity, derived-dependency resolution, and absence of any plaintext leak. Does not require a `provider_managed` secret to already be resolved.
-- `bin/secrets edit` / `bin/secrets show` - the project's existing secret-inspection commands, unchanged by generation support.
-- `bin/secrets policy` / `bin/secrets generate --list` - prints each secret's policy only, never a value, e.g.:
+- `bin/secrets <environment> check` - validates required tools, backend access, policy-file syntax, that every secret has a known policy where required, that generators referenced by policy actually exist, policy/generator combination validity, derived-dependency resolution, and absence of any plaintext leak. Does not require a `provider_managed` secret to already be resolved.
+- `bin/secrets <environment> edit` / `bin/secrets <environment> show` - the project's existing secret-inspection commands, unchanged by generation support.
+- `bin/secrets <environment> policy` / `bin/secrets <environment> generate --list` - prints each secret's policy only, never a value, e.g.:
   ```text
   JWT_SECRET              LOCAL_GENERATABLE
   POSTGRES_PASSWORD       INFRASTRUCTURE_GENERATABLE
   VAPID_KEY_PAIR          PROTOCOL_GENERATABLE
   GOOGLE_CLIENT_SECRET    PROVIDER_MANAGED
   ```
-- `bin/secrets generate <NAME>`:
+- `bin/secrets <environment> generate <NAME>`:
   1. recognize `<NAME>` from the project's own policy file (not from the name alone);
   2. look up its generation policy;
   3. reject immediately (clear message, no generation attempted, non-zero exit) if the policy is `provider_managed`, `existing_value_must_be_preserved`, or has no recognized entry at all (`GENERATION_POLICY_UNKNOWN`);
@@ -365,8 +367,8 @@ LEGACY_SIGNING_KEY:
   6. persist directly into the configured backend per Step 7's write strategy;
   7. validate per Step 13;
   8. print only status (Step 14's format) - never the value.
-- `bin/secrets generate --missing`: apply the `generate --missing` semantics above, restricted to names the project's own policy file has positively classified - never attempt to generate an unrecognized name just because it appears somewhere in `config/deploy.yml`. A secret with no policy entry is reported skipped as unknown-policy, not silently ignored.
-- `bin/secrets rotate <NAME>` - the only supported path for replacing an existing real value. Distinct from `generate`; requires interactive confirmation of rotation intent, refuses immediately for `provider_managed`/unknown policies, and never adds a casual force-overwrite flag to `generate` itself.
+- `bin/secrets <environment> generate --missing`: apply the `generate --missing` semantics above, restricted to names the project's own policy file has positively classified - never attempt to generate an unrecognized name just because it appears somewhere in `config/deploy.yml`. A secret with no policy entry is reported skipped as unknown-policy, not silently ignored.
+- `bin/secrets <environment> rotate <NAME>` - the only supported path for replacing an existing real value. Distinct from `generate`; requires interactive confirmation of rotation intent, refuses immediately for `provider_managed`/unknown policies, and never adds a casual force-overwrite flag to `generate` itself.
 
 ### Applying this to a project
 
@@ -375,7 +377,7 @@ When the Skill configures (or finds already configured) a secrets backend for a 
 - **No existing `bin/secrets`:** install `templates/bin/secrets` as the project's `bin/secrets`, and generate `config/secret-generation.yml` from actual project analysis (Steps 1-2 above) rather than copying the template's illustrative entries.
 - **An existing project `bin/secrets`:** never blindly overwrite it. Inspect its current commands/behavior first, preserve anything it already does correctly, and merge in only the generation capability it's missing - treat this the same as any other upgrade-in-place, not a replacement.
 
-A Skill-managed secrets workflow's expected artifacts are now `bin/secrets`, `config/secret-generation.yml`, and the selected backend together - not the backend alone. Once installed, "generate JWT_SECRET" from the user means the agent runs `bin/secrets generate JWT_SECRET`, never a reimplementation of the generation logic inline.
+A Skill-managed secrets workflow's expected artifacts are now `bin/secrets`, `config/secret-generation.yml`, and the selected backend together - not the backend alone. Once installed, "generate JWT_SECRET" from the user means the agent runs `bin/secrets <environment> generate JWT_SECRET`, never a reimplementation of the generation logic inline.
 
 ## Regression coverage
 

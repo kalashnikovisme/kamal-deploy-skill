@@ -61,6 +61,6 @@ kamal deploy -d production
 ```
 
 Notes:
-- Secrets can also be split per destination: `.kamal/secrets-staging` / `.kamal/secrets-production`, loaded automatically when `-d` is passed, alongside the shared `.kamal/secrets-common` if present.
+- Secrets are split per destination by default: `.kamal/secrets.staging` / `.kamal/secrets.production` (a **dot**, not a hyphen - Kamal's `Kamal::Secrets#secrets_filenames` only reads `<secrets_path>-common` and `<secrets_path>.<destination>`), loaded automatically when `-d` is passed, alongside the shared `.kamal/secrets-common` if present - which must hold no environment-specific secrets. With a SOPS backend each environment also has its own encrypted file (`config/secrets/staging.sops.yaml`, `config/secrets/production.sops.yaml`) and `bin/secrets staging edit` / `bin/secrets production edit` (see `agents/patterns/secrets-sops-age.md`).
 - Don't put `servers:` in the base `deploy.yml` if every destination needs different hosts — leave it only in the per-destination files, as shown here, to avoid an unused default that could be deployed by accident.
 - Any `bin/deploy` wrapper must forward `-d`/`--destination` untouched, the same way it forwards `-q`/`--quiet` (see `references/kamal-commands.md`).

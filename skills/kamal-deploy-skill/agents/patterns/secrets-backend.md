@@ -1,16 +1,16 @@
 # Secrets Backend Selection
 
-Runs once per repo, during SKILL.md Step 4b, before any production secret is written to `.kamal/secrets` or any accessory's `secret:` list.
+Runs once per repo, during SKILL.md Step 4b, before any production secret is written to `.kamal/secrets.<destination>` or any accessory's `secret:` list.
 
 ## Verified Kamal mechanics
 
 Verified against Kamal's current documented behavior - re-verify if it changes:
 
-- `.kamal/secrets` is a shell script Kamal sources before `deploy`/`setup`/`accessory`/etc. Lines are `KEY=value` or `KEY=$(command)` - command substitution is fully supported, so any command that prints a value to stdout can populate a secret.
-- `secrets_path` defaults to `.kamal/secrets`; Kamal also supports a shared `.kamal/secrets-common` plus a destination-specific `.kamal/secrets.<destination>` loaded and merged per destination.
+- Kamal dotenv-parses its secrets files before `deploy`/`setup`/`accessory`/etc. (it does not execute them as a script). Lines are `KEY=value` or `KEY=$(command)` - inline command substitution is supported, so any command that prints a value to stdout can populate a secret.
+- `secrets_path` defaults to `.kamal/secrets`. **With `-d <destination>` Kamal loads `<secrets_path>-common` and `<secrets_path>.<destination>`; the plain `.kamal/secrets` is read only when no destination is passed** (verified against Kamal 2.12's `Kamal::Secrets#secrets_filenames`). Secrets differ per environment, so by default they live in `.kamal/secrets.<destination>` (e.g. `.kamal/secrets.production`) and the shared `-common` file holds nothing sensitive - see `agents/patterns/secrets-sops-age.md` "Repository layout" for the full per-environment default.
 - `kamal secrets fetch`/`kamal secrets extract` ship **native adapters** for a fixed set of providers (1Password among them) - these are adapters Kamal's own CLI knows how to call directly.
-- **SOPS has no native `kamal secrets fetch --adapter` provider.** Do not describe it as one. SOPS is integrated the same way any non-native backend is: a command inside `.kamal/secrets` (command substitution) that calls `sops` directly and prints the decrypted value - there is no Kamal-side SOPS awareness beyond that.
-- `env.secret` entries and accessory `secret:` entries both resolve by name from whatever `.kamal/secrets`/`secrets_path` ultimately exports - the backend behind that is invisible to Kamal past this point.
+- **SOPS has no native `kamal secrets fetch --adapter` provider.** Do not describe it as one. SOPS is integrated the same way any non-native backend is: a command inside `.kamal/secrets.<destination>` (command substitution) that calls `sops` (or the project's `bin/secrets <environment> value NAME`) and prints the decrypted value and prints the decrypted value - there is no Kamal-side SOPS awareness beyond that.
+- `env.secret` entries and accessory `secret:` entries both resolve by name from whatever the loaded secrets files (`<secrets_path>-common` plus `<secrets_path>.<destination>`) ultimately export - the backend behind that is invisible to Kamal past this point.
 
 ## Decision step
 
@@ -30,7 +30,7 @@ If no established backend is found, present options rather than picking one sile
 > "This project has no established secrets-management backend yet. Two good options for Kamal:
 >
 > - **1Password** - secret values live in an external vault; good if you already use 1Password, want centralized/team secret management, and are fine with an external service owning the vault. Kamal has a native 1Password integration.
-> - **SOPS + age** - a Rails.credentials-like workflow: an encrypted file committed to Git, with the decryption key (an age identity) kept outside Git. No external SaaS dependency; cloning the repo plus an authorized private key is enough to operate the deployment. (Not a native Kamal adapter - integrated via `.kamal/secrets` command substitution.)
+> - **SOPS + age** - a Rails.credentials-like workflow: an encrypted file committed to Git, with the decryption key (an age identity) kept outside Git. No external SaaS dependency; cloning the repo plus an authorized private key is enough to operate the deployment. (Not a native Kamal adapter - integrated via `.kamal/secrets.<destination>` command substitution, with one encrypted file per environment.)
 >
 > Which fits this project?"
 

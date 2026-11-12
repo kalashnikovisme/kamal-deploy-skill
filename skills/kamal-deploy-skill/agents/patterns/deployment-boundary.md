@@ -116,7 +116,7 @@ When the user says something like "everything should run on one server," treat t
 
 ## One server means one declaration
 
-When all application components and accessories intentionally live on the same physical server, avoid duplicating that server's address across multiple independent deployment files. The generated architecture should normally have one authoritative Kamal configuration describing the deployment, with one normal `config/deploy.yml` and one normal Kamal secrets layout (`.kamal/secrets`). Do not create separate secret files/configuration trees per Deployable Unit unless the resulting topology (per the hierarchy above) actually lands on Level 3 for that unit.
+When all application components and accessories intentionally live on the same physical server, avoid duplicating that server's address across multiple independent deployment files. The generated architecture should normally have one authoritative Kamal configuration describing the deployment, with one normal `config/deploy.yml` and one normal Kamal secrets layout (one `.kamal/secrets.<destination>` per destination). Do not create separate secret files/configuration trees per Deployable Unit unless the resulting topology (per the hierarchy above) actually lands on Level 3 for that unit.
 
 ## Frontend + backend consolidation
 

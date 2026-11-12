@@ -225,10 +225,12 @@ builder:
 Adjust `healthcheck.path` to the actual health endpoint added in Step 2.
 For FastAPI/Flask, set `DJANGO_SETTINGS_MODULE` to the relevant env var or remove it.
 
-## 6. Create .kamal/secrets
+## 6. Create .kamal/secrets.<destination>
+
+One secrets file per destination: with `-d <destination>` Kamal reads `.kamal/secrets.<destination>` (plus the shared `.kamal/secrets-common`); the plain `.kamal/secrets` is read only when no destination is passed. Create `.kamal/secrets.production` for production (and `.kamal/secrets.staging` for staging), and never share environment-specific secrets between them. Full default layout (including one encrypted file per environment): `agents/patterns/secrets-sops-age.md` "Repository layout".
 
 ```bash
-# .kamal/secrets
+# .kamal/secrets.production
 # Load from environment. NEVER commit actual values.
 
 KAMAL_REGISTRY_PASSWORD=$KAMAL_REGISTRY_PASSWORD
@@ -246,6 +248,8 @@ Add to `.gitignore`:
 .kamal/secrets-common
 .kamal/secrets.*
 ```
+
+`.kamal/secrets*` is ignored by default. With a SOPS + age backend where every line is a command substitution, un-ignore each committed destination file explicitly (`!.kamal/secrets.production`) - see `agents/patterns/secrets-sops-age.md`.
 
 ## 7. Django-Specific: Static Files and Migrations
 

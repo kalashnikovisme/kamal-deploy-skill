@@ -22,8 +22,9 @@ Read `SKILL.md` for the full step-by-step instructions. This file is the primary
 
 ## Rules
 
-- Never ask for secrets values in chat. Always use `.kamal/secrets`.
-- Determine the secrets backend (see `agents/patterns/secrets-backend.md`) before writing any secret. Gitignore `.kamal/secrets` by default unless every line in it is command substitution resolving from a committed encrypted backend (e.g. SOPS + age via `agents/patterns/secrets-sops-age.md`) with no literal secret value present - in that case it may be committed.
+- Never ask for secrets values in chat. Always use the destination's secrets file, `.kamal/secrets.<destination>`.
+- Secrets are per environment by default: one encrypted file per environment (`config/secrets/<environment>.sops.yaml`), one `.kamal/secrets.<destination>` per Kamal destination, nothing secret in `.kamal/secrets-common`, and `bin/secrets <environment> <command>` always takes the environment first (see `agents/patterns/secrets-sops-age.md` "Repository layout").
+- Determine the secrets backend (see `agents/patterns/secrets-backend.md`) before writing any secret. Gitignore `.kamal/secrets.*` by default unless every line in the file is command substitution resolving from a committed encrypted backend (e.g. SOPS + age via `agents/patterns/secrets-sops-age.md`) with no literal secret value present - in that case it may be committed.
 - Do not cover Ruby on Rails projects - redirect to tramway-skill (per-unit, not just at the repo root).
 - Do not infer the number of deployable units from directory count or from the presence/absence of a root workspace tool (npm/pnpm/yarn workspaces, Nx, Turborepo, Cargo workspaces) - see `agents/patterns/deployable-units.md`.
 - When the target repo exposes `bin/` wrappers, prefer them over raw `kamal` commands.

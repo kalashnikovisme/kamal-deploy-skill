@@ -139,7 +139,7 @@ The policy is **not** "prefer internal, otherwise fall back to public." It is: p
    - Authenticate every sensitive functional endpoint on B against the caller.
    - Health/readiness endpoints may remain unauthenticated when they expose no sensitive information and are required for `kamal-proxy`'s health checks.
    - Use an appropriate secret/token/HMAC mechanism for the application (a shared bearer token, signed request HMAC, mTLS, etc. - pick what fits the stack, this Skill doesn't mandate one specific scheme).
-   - Store the credential through the normal Kamal secrets mechanism (`.kamal/secrets`); never hardcode it in `deploy.yml` or source code.
+   - Store the credential through the normal Kamal secrets mechanism (`.kamal/secrets.<destination>`); never hardcode it in `deploy.yml` or source code.
 
    Once application-level privacy is explicitly accepted and the authentication above is in place, B's public `kamal-proxy` reachability is not itself a deployment blocker - do not keep flagging it as a defect after this point.
 

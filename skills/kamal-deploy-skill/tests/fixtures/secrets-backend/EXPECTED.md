@@ -18,9 +18,10 @@ Scenario: following Case A, the user picks SOPS + age for a repo with no age ide
 
 Expected behavior:
 
-- `.sops.yaml` and the encrypted secrets file (e.g. `config/secrets.sops.yaml`) are committed.
+- `.sops.yaml` and one encrypted secrets file **per environment** (e.g. `config/secrets/production.sops.yaml`, plus `config/secrets/development.sops.yaml` if the project has a development environment) are committed; `.sops.yaml` has one creation rule per environment file.
 - The age private identity is never committed, never printed in chat or in any report, and is stored outside the repo via a documented mechanism (e.g. `SOPS_AGE_KEY_FILE`).
-- `.kamal/secrets` resolves every SOPS-backed value via command substitution calling `sops` directly - no line contains a literal secret value.
+- `.kamal/secrets.production` (the file Kamal reads for `-d production`) resolves every SOPS-backed value via command substitution (`bin/secrets production value NAME` or `sops` directly against `config/secrets/production.sops.yaml`) - no line contains a literal secret value, no line reads another environment's file, and `.kamal/secrets-common` holds no values.
+- `bin/secrets` is environment-first (`bin/secrets production edit`, `bin/secrets development edit`); there is no default environment and a command without one is refused.
 - Normal `kamal deploy`/`kamal setup` works without the user manually exporting any secret first.
 - No decrypted plaintext file is left on disk at any point.
 
@@ -77,7 +78,7 @@ Scenario: `.sops.yaml`/encrypted file are present and correct, but no age privat
 
 Expected behavior:
 
-- `.kamal/secrets` fails closed with a clear error (e.g. via `set -e` plus a non-zero exit from the `sops` call) - it must not deploy with blank/empty secret values as if they were valid.
+- `.kamal/secrets.<destination>` fails closed with a clear error (e.g. via `set -e` plus a non-zero exit from the `sops` call) - it must not deploy with blank/empty secret values as if they were valid.
 - The encrypted file itself stays safe; the agent does not suggest bypassing SOPS (e.g. temporarily hardcoding a secret) to get the deploy to proceed.
 - The agent states the setup requirement (obtain or generate an authorized age identity) rather than attempting a workaround.
 

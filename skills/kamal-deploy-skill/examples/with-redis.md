@@ -69,7 +69,7 @@ accessories:
       - redis-data:/data
 ```
 
-`.kamal/secrets`:
+`.kamal/secrets.production`:
 
 ```sh
 REDIS_PASSWORD=<primitive from the selected secrets backend>

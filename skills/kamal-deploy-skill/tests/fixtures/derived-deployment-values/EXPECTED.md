@@ -79,7 +79,7 @@ Scenario: the Skill controls the PostgreSQL accessory's topology, and the projec
 Expected behavior:
 
 - The agent identifies this as duplicated derived state (conceptually, a `DUPLICATED_DERIVED_SECRET` finding) rather than treating it as two unrelated secrets.
-- The agent offers to normalize: keep `POSTGRES_PASSWORD`, remove the independently-stored `DATABASE_URL` entry, and move `DATABASE_URL` construction into `.kamal/secrets`.
+- The agent offers to normalize: keep `POSTGRES_PASSWORD`, remove the independently-stored `DATABASE_URL` entry, and move `DATABASE_URL` construction into `.kamal/secrets.<destination>`.
 - Normalizing does not change the value of `POSTGRES_PASSWORD` itself.
 
 ## Case I: derived internal service URL
@@ -93,5 +93,5 @@ Expected behavior:
 
 ## Explicitly out of scope for this fixture
 
-- The exact shell/encoding tool used inside `.kamal/secrets` to percent-encode credential components - `agents/patterns/derived-deployment-values.md` states the requirement, not a mandated specific tool.
+- The exact shell/encoding tool used inside `.kamal/secrets.<destination>` to percent-encode credential components - `agents/patterns/derived-deployment-values.md` states the requirement, not a mandated specific tool.
 - Accessory ownership decisions themselves (Kamal-managed vs. external) - covered by SKILL.md Step 4b #6 directly, assumed already resolved as a precondition for each case above.

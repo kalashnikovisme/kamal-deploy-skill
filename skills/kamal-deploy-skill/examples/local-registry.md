@@ -29,4 +29,4 @@ Notes:
 - `registry.server` is the piece that changes — everything else in `deploy.yml` is unaffected by using a local registry.
 - "Local" here means local **to the deploy process**, typically a registry container running on (or reachable from) the target server(s), not literally `localhost` on the operator's own machine — confirm with the user where the registry container actually runs before using `localhost` in this field.
 - The registry container itself is usually run outside Kamal's management (e.g. via a separate `docker run registry:2` or a dedicated boot script) since Kamal doesn't manage the registry it pushes to.
-- If the registry requires auth, `KAMAL_REGISTRY_PASSWORD` still goes through `.kamal/secrets` like any other registry credential — never hardcode it.
+- If the registry requires auth, `KAMAL_REGISTRY_PASSWORD` still goes through `.kamal/secrets.<destination>` like any other registry credential — never hardcode it.

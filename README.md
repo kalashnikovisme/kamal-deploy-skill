@@ -18,7 +18,7 @@ A Claude Code / Codex skill for configuring [Kamal](https://kamal-deploy.org/) d
 - Detects if a unit is Ruby on Rails → redirects to tramway-skill for that unit
 - Detects each managed unit's technology stack automatically and loads the matching recipe
 - Supports Node.js / Next.js, Python, Go, PHP / Laravel, Java / Spring Boot, .NET, Elixir / Phoenix, Terraform, and unknown-stack fallback
-- Generates a `Dockerfile`, `config/deploy.yml`, and `.kamal/secrets` template suited to each unit's stack
+- Generates a `Dockerfile`, `config/deploy.yml`, and `.kamal/secrets.<destination>` template (one per environment) suited to each unit's stack
 - When more than one unit is Kamal-managed, first determines the Kamal deployment boundary separately from the Deployable Unit count: prefers consolidating units that share a product/server/release cadence into one `config/deploy.yml` as application roles and/or accessories, and only generates per-unit `config/deploy.<unit>.yml` files (invoked via Kamal's `-c`/`--config-file` flag, with distinct `secrets_path`/`hooks_path` per unit) when there's a concrete, stated reason the units can't share a deployment
 - Applies cross-cutting patterns independently per unit as needed: a secondary runtime invoked as a subprocess, large build-time assets baked into the image, and database migration mechanics (pre-deploy hook vs. inline-at-boot)
 - Checks an existing Dockerfile for Kamal-readiness (single identifiable port, foreground process, health-checkable path) before reusing it
@@ -64,13 +64,13 @@ See `agents/patterns/application-console.md` and `tests/application-console/run_
 
 ## Secrets backends
 
-The skill never invents a secrets backend on its own — it detects an established one and preserves it, or presents options when none exists yet (`agents/patterns/secrets-backend.md`). Only one native Kamal adapter exists among these; the rest integrate through `.kamal/secrets` command substitution:
+The skill never invents a secrets backend on its own — it detects an established one and preserves it, or presents options when none exists yet (`agents/patterns/secrets-backend.md`). Only one native Kamal adapter exists among these; the rest integrate through `.kamal/secrets.<destination>` command substitution:
 
 | Backend | Storage | Decryption / access | Best fit | Native Kamal adapter? |
 |---|---|---|---|---|
 | Rails credentials | `config/credentials.yml.enc` committed | `RAILS_MASTER_KEY`/`config/master.key` kept outside Git | Existing Rails projects already using this model | No (Rails-level, not Kamal) |
 | 1Password | Values live in an external vault, not in the repo | 1Password service account / Connect server | Teams already centralizing secrets in 1Password; want vault-level audit | Yes — `kamal secrets fetch --adapter 1password` |
-| SOPS + age | Encrypted file (`config/secrets.sops.yaml`) committed to the repo | An age private identity held outside Git by whoever needs to decrypt | No external SaaS dependency; a Rails-credentials-like workflow for non-Rails projects | No — integrated via `.kamal/secrets` command substitution calling `sops` directly (see `agents/patterns/secrets-sops-age.md`) |
+| SOPS + age | One encrypted file per environment (`config/secrets/<environment>.sops.yaml`) committed to the repo | An age private identity held outside Git by whoever needs to decrypt | No external SaaS dependency; a Rails-credentials-like workflow for non-Rails projects | No — integrated via `.kamal/secrets.<destination>` command substitution (`bin/secrets <environment> value NAME`, or `sops` directly) (see `agents/patterns/secrets-sops-age.md`) |
 
 Neither 1Password nor SOPS + age is "more secure" in the abstract — they differ in ownership model: 1Password keeps secret values outside the repo entirely, under a vault service; SOPS + age keeps encrypted values inside the repo, with the decryption capability (the age private identity) held outside it.
 

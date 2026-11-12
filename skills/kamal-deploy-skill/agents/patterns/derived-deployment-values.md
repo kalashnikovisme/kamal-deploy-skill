@@ -55,21 +55,21 @@ env:
     - DATABASE_URL
 ```
 
-`.kamal/secrets` resolves the primitive from the backend and derives the composite value:
+`.kamal/secrets.<destination>` resolves the primitive from the backend and derives the composite value:
 
 ```sh
-POSTGRES_PASSWORD=$(sops --extract '["postgres_password"]' -d config/secrets.sops.yaml)
+POSTGRES_PASSWORD=$(sops --extract '["postgres_password"]' -d config/secrets/<environment>.sops.yaml)
 DATABASE_URL="postgresql://app:$(urlencode "$POSTGRES_PASSWORD")@myapp-postgres:5432/myapp_production"
 ```
 
-This is illustrative of the shape, not literal syntax to copy - the backend lookup line follows whichever backend was selected (see "Backend-specific storage" below), and the URI-encoding helper must actually exist/be implemented (see next section). Do not write `DATABASE_URL` into `env.clear` with shell-style `${POSTGRES_PASSWORD}` interpolation - `deploy.yml` is parsed as YAML/ERB, not shell, so a literal `${POSTGRES_PASSWORD}` string would be passed to the container unexpanded. If a value contains secret material, it belongs in `env.secret`, resolved by `.kamal/secrets`, never assembled via unexpanded shell syntax sitting in committed YAML.
+This is illustrative of the shape, not literal syntax to copy - the backend lookup line follows whichever backend was selected (see "Backend-specific storage" below), and the URI-encoding helper must actually exist/be implemented (see next section). Do not write `DATABASE_URL` into `env.clear` with shell-style `${POSTGRES_PASSWORD}` interpolation - `deploy.yml` is parsed as YAML/ERB, not shell, so a literal `${POSTGRES_PASSWORD}` string would be passed to the container unexpanded. If a value contains secret material, it belongs in `env.secret`, resolved by `.kamal/secrets.<destination>`, never assembled via unexpanded shell syntax sitting in committed YAML.
 
 ## URI encoding (mandatory, not optional)
 
 Never concatenate a raw password into a connection string. Percent-encode the username/password components per the connection-string format's own encoding rules before interpolating them, so characters including `@ : / ? # %` can't break the URL or get misparsed as a delimiter.
 
 - Do not solve this by restricting generated passwords to a weak/simple character set - fix the encoding, not the password.
-- Implement (or call) an actual encoding routine appropriate to the shell/language available in `.kamal/secrets` (e.g. a small `jq -rn --arg v "$PASSWORD" '$v|@uri'` or an equivalent percent-encoding call, or a short helper script if the project already has a scripting runtime available) - do not hand-roll a partial character-substitution that only covers a few symbols.
+- Implement (or call) an actual encoding routine appropriate to the shell/language available in `.kamal/secrets.<destination>` (e.g. a small `jq -rn --arg v "$PASSWORD" '$v|@uri'` or an equivalent percent-encoding call, or a short helper script if the project already has a scripting runtime available) - do not hand-roll a partial character-substitution that only covers a few symbols.
 - Verify the final constructed URL is syntactically valid for the target driver/format as part of validation (see below), not just "looks right."
 
 ## Redis: `REDIS_URL`
@@ -133,15 +133,15 @@ No manual input is required for any of these three in this scenario.
 
 This rule applies identically across every supported secrets backend - it is not SOPS-specific.
 
-- **SOPS + age** (`agents/patterns/secrets-sops-age.md`): `config/secrets.sops.yaml` holds only genuine primitives (`POSTGRES_PASSWORD`, `JWT_SECRET`, etc.), never a duplicated `DATABASE_URL` containing the same password, and never a `REDIS_URL` that holds no secret material at all. `.kamal/secrets` resolves the primitive via `sops --extract` and derives the composite value in the same script, with no plaintext derived value ever written to disk.
-- **1Password**: store `POSTGRES_PASSWORD` as the vault item; do not also store an independent `DATABASE_URL` item when it is deterministic from that password plus topology. Derive it in `.kamal/secrets` after `kamal secrets fetch`/`extract` resolves the primitive.
+- **SOPS + age** (`agents/patterns/secrets-sops-age.md`): `config/secrets/<environment>.sops.yaml` holds only genuine primitives (`POSTGRES_PASSWORD`, `JWT_SECRET`, etc.), never a duplicated `DATABASE_URL` containing the same password, and never a `REDIS_URL` that holds no secret material at all. `.kamal/secrets` resolves the primitive via `sops --extract` and derives the composite value in the same script, with no plaintext derived value ever written to disk.
+- **1Password**: store `POSTGRES_PASSWORD` as the vault item; do not also store an independent `DATABASE_URL` item when it is deterministic from that password plus topology. Derive it in `.kamal/secrets.<destination>` after `kamal secrets fetch`/`extract` resolves the primitive.
 - **Any other backend**: same principle - the backend holds the minimal set of independent primitives needed to reconstruct the full deployment environment; everything derivable is generated, not independently stored.
 
 ## Drift and duplication detection (validation)
 
 Treat an independently-stored derived value as a defect to flag and offer to fix, not a silent acceptable state:
 
-- If both a secret primitive (e.g. `POSTGRES_PASSWORD`) and an independently-stored composite (e.g. `DATABASE_URL`) exist in the backend, and the composite is demonstrably derivable from that primitive plus Kamal-controlled topology, flag it as `DUPLICATED_DERIVED_SECRET` and offer to normalize: keep the primitive, remove the independent composite entry, move composite construction into `.kamal/secrets`.
+- If both a secret primitive (e.g. `POSTGRES_PASSWORD`) and an independently-stored composite (e.g. `DATABASE_URL`) exist in the backend, and the composite is demonstrably derivable from that primitive plus Kamal-controlled topology, flag it as `DUPLICATED_DERIVED_SECRET` and offer to normalize: keep the primitive, remove the independent composite entry, move composite construction into `.kamal/secrets.<destination>`.
 - Apply the same check for `REDIS_PASSWORD` + an independently stored `REDIS_URL`.
 - **Do not flag this for an externally-managed database/service** where the Skill does not control the topology (see "External / provider-managed databases and services" above) - an opaque provider-supplied `DATABASE_URL` is not a duplication defect, it's the actual primitive.
 - Normalizing must never change the underlying primitive credential's value - only remove the redundant independently-stored derived copy.
@@ -164,7 +164,7 @@ For every category 2/3 derived value, verify without printing the resolved value
 
 Never use a full secret-dump command (`kamal secrets print`, an unscoped `sops -d`) as the mechanism for this validation - validate structurally (dependency presence, derivation success, syntactic validity) without surfacing the resolved value.
 
-## `bin/secrets check` output (when SOPS is in use)
+## `bin/secrets <environment> check` output (when SOPS is in use)
 
 Extend the check to understand derived values rather than treating every `config/deploy.yml` secret name as requiring its own backend entry:
 
@@ -175,7 +175,7 @@ REDIS_URL          OK (derived clear configuration: Redis accessory topology)
 JWT_SECRET         MISSING (external value required)
 ```
 
-A derived value must not fail merely because it has no entry of its own in `config/secrets.sops.yaml` - its *dependencies* are what gets checked (the primitive it depends on, and the topology it depends on), never the derived name treated as a standalone required backend key. Never print resolved values, including derived ones.
+A derived value must not fail merely because it has no entry of its own in `config/secrets/<environment>.sops.yaml` - its *dependencies* are what gets checked (the primitive it depends on, and the topology it depends on), never the derived name treated as a standalone required backend key. Never print resolved values, including derived ones.
 
 ## Secret inventory report format
 

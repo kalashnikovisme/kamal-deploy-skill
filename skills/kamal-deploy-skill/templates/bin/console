@@ -80,7 +80,7 @@ if [ "$mode" = remote ]; then
   fi
 
   # Optional secrets sourcing for the chosen destination, same convention as bin/deploy.
-  if [ -n "$destination" ] && [ -f ".kamal/secrets-$destination" ]; then set -a; . ".kamal/secrets-$destination"; set +a; fi
+  if [ -n "$destination" ] && [ -f ".kamal/secrets.$destination" ]; then set -a; . ".kamal/secrets.$destination"; set +a; fi
 
   # Rebuild "$@" from the file (newline separated, preserves spaces inside values).
   set --

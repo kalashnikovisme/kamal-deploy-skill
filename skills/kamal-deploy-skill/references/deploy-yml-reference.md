@@ -47,7 +47,7 @@ registry:
   server: ghcr.io           # Optional; defaults to Docker Hub
   username: myuser           # Or use an env var reference
   password:
-    - KAMAL_REGISTRY_PASSWORD   # Loaded from .kamal/secrets
+    - KAMAL_REGISTRY_PASSWORD   # Loaded from .kamal/secrets.<destination>
 ```
 
 ## Environment Variables
@@ -58,7 +58,7 @@ env:
     DATABASE_HOST: db.internal
     PORT: "3000"
   secret:
-    - DATABASE_PASSWORD    # Loaded from .kamal/secrets; stored in encrypted env file on host
+    - DATABASE_PASSWORD    # Loaded from .kamal/secrets.<destination>; stored in encrypted env file on host
     - SECRET_KEY
 ```
 
@@ -123,7 +123,7 @@ builder:
   args:
     BUILD_VERSION: 1.0.0
   secrets:
-    - BUILD_SECRET            # Loaded from .kamal/secrets for build
+    - BUILD_SECRET            # Loaded from .kamal/secrets.<destination> for build
   cache:
     type: registry            # or gha (GitHub Actions)
     options: mode=max
@@ -220,9 +220,9 @@ env:
 ```
 
 Deploy to staging: `bin/deploy -d staging`
-Deploy to production: `bin/deploy` (no `-d` flag uses `deploy.yml` defaults)
+Deploy to production: `bin/deploy -d production` (the destination selects `.kamal/secrets.production`; without `-d` Kamal reads the plain `.kamal/secrets` only)
 
-## .kamal/secrets Format
+## .kamal/secrets Format (one file per destination)
 
 ```bash
 # Reference a shell environment variable:
@@ -231,8 +231,10 @@ KAMAL_REGISTRY_PASSWORD=$KAMAL_REGISTRY_PASSWORD
 # Run a command to get the value:
 RAILS_MASTER_KEY=$(cat config/master.key)
 
-# For destination-specific secrets, use .kamal/secrets.staging:
-# .kamal/secrets-common — shared across all destinations
+# Default: one file per destination - .kamal/secrets.production, .kamal/secrets.staging.
+# With -d <destination> Kamal reads .kamal/secrets-common and .kamal/secrets.<destination>;
+# the plain .kamal/secrets is read only when no destination is passed.
+# .kamal/secrets-common — shared across all destinations; keep environment-specific secrets out of it
 ```
 
-All secrets listed under `env.secret` in `deploy.yml` must have matching entries in `.kamal/secrets`.
+All secrets listed under `env.secret` in `deploy.yml` must have matching entries in the loaded secrets files (`.kamal/secrets.<destination>`).

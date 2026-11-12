@@ -163,7 +163,7 @@ After the Terraform recipe completes, resume at Step 4b with the confirmed serve
 
 **Before collecting anything else, determine the secrets-management backend.** Load `agents/patterns/secrets-backend.md` and follow it: inspect the repo for an already-established backend (Rails credentials, SOPS, 1Password, Doppler, Bitwarden, a cloud secret manager) and preserve it unless the user explicitly asks to change it; only present options (1Password, SOPS + age, at minimum) when no backend is established yet. This decision governs how every secret collected below is actually stored and resolved - do it once per repo, not per item below, and do not re-ask on a later Skill invocation once a backend is already established for this project.
 
-**When the backend is SOPS + age (newly configured or already established), also install the reusable secret-generation helper.** Load `agents/patterns/secret-generation.md`'s "The reusable `bin/secrets` implementation" section. If the project has no `bin/secrets` yet, install `templates/bin/secrets` as one and generate a project-specific `config/secret-generation.yml` from actual inspection of this project's secrets (never copied from the template verbatim). If the project already has a `bin/secrets`, inspect it first and merge the generation capability in rather than overwriting it. The expected artifacts for a Skill-managed SOPS secrets workflow are now `bin/secrets` + `config/secret-generation.yml` + `config/secrets.sops.yaml` together, not the encrypted file alone.
+**When the backend is SOPS + age (newly configured or already established), also install the reusable secret-generation helper.** Load `agents/patterns/secret-generation.md`'s "The reusable `bin/secrets` implementation" section. If the project has no `bin/secrets` yet, install `templates/bin/secrets` as one and generate a project-specific `config/secret-generation.yml` from actual inspection of this project's secrets (never copied from the template verbatim). If the project already has a `bin/secrets`, inspect it first and merge the generation capability in rather than overwriting it. The expected artifacts for a Skill-managed SOPS secrets workflow are now `bin/secrets` + `config/secret-generation.yml` + one `config/secrets/<environment>.sops.yaml` per environment together, not an encrypted file alone. **Secrets are per environment by default:** every environment (`production`, and `staging`/`development` when the project has them) gets its own encrypted file and a `.sops.yaml` rule, Kamal destinations read their own `.kamal/secrets.<destination>` (never values in `.kamal/secrets-common`), and every `bin/secrets` command takes the environment as its first argument. Even a single-environment project names it `production` (with `config/deploy.production.yml` and `bin/deploy -d production`) so adding an environment later is a new file, not a migration. Load `agents/patterns/secrets-sops-age.md` "Repository layout" for the full rules.
 
 Collect the following (ask only what is not already determinable from the project files or from the Terraform step). If there are multiple Kamal-managed units sharing a server/registry, ask these once and apply the shared answers to every unit; only ask per-unit where the answer plausibly differs (domain/subdomain, accessories, service name):
 
@@ -185,7 +185,7 @@ Collect the following (ask only what is not already determinable from the projec
      server: localhost:5555
    ```
 
-   Remove `KAMAL_REGISTRY_PASSWORD` from `.kamal/secrets` - it is not needed.
+   Remove `KAMAL_REGISTRY_PASSWORD` from `.kamal/secrets.<destination>` - it is not needed.
 
 3. **Remote builder** - ask, but never offer local build as an option alongside a local Kamal registry: the two are mutually exclusive, since only the server can reach its own `localhost:4443` registry. Decide which form of this question to ask based on the registry choice above:
 
@@ -222,7 +222,7 @@ Collect the following (ask only what is not already determinable from the projec
    - **B. Who owns/provisions it?** - a Kamal accessory, an existing managed database/cache, an external provider, infra provisioned separately, or another platform's add-on.
    For each detected dependency, check the repo for ownership evidence first (a `DATABASE_URL`/`REDIS_URL` already pointing at a non-localhost managed host, Terraform/infra config provisioning it elsewhere, platform config like `fly.toml`/`render.yaml` attaching a managed instance). If that evidence clearly establishes ownership, state it to the user and move on - don't ask. Otherwise ask explicitly, per dependency:
    > "This project depends on \<PostgreSQL/Redis\>. Should Kamal provision and manage it as an accessory, or does it already connect to an existing/external \<service\>?"
-   Only add an `accessories:` block (see `examples/with-postgres.md` / `examples/with-redis.md`) for a dependency the user confirms - or clear repo evidence establishes - should be Kamal-managed. For an externally-owned dependency, add its connection secret to `.kamal/secrets` and skip the accessory block entirely. Never default to creating an accessory merely because the dependency was detected.
+   Only add an `accessories:` block (see `examples/with-postgres.md` / `examples/with-redis.md`) for a dependency the user confirms - or clear repo evidence establishes - should be Kamal-managed. For an externally-owned dependency, add its connection secret to the destination's `.kamal/secrets.<destination>` and skip the accessory block entirely. Never default to creating an accessory merely because the dependency was detected.
 
    **Before writing any connection-string secret or placeholder for a Kamal-managed accessory, load `agents/patterns/derived-deployment-values.md` and run its dependency analysis.** A value like `DATABASE_URL`/`REDIS_URL` for a Kamal-managed accessory is frequently not an independent secret at all - it may be fully derivable from clear accessory topology (no secret material: generate it directly as clear config) or derivable from topology plus a primitive already being stored (e.g. `POSTGRES_PASSWORD`: generate the composite at secret-resolution time, store only the primitive). Never ask the user to separately populate both a primitive and a value deterministically built from it. This does not apply to an externally-owned/provider-managed connection string (Supabase, Neon, RDS, etc.) - that stays a single opaque secret primitive, never decomposed.
 
@@ -234,7 +234,7 @@ Collect the following (ask only what is not already determinable from the projec
 7. **Destinations** - does the user want separate staging and production configs?
 8. **Inter-unit/service networking** - if this unit (or another unit in the same run) needs to call a *separately configured* Kamal service (different `deploy.yml`/`service:` name, whether on the same or a different server), see "Inter-service communication" in `agents/patterns/multi-service-repo.md` and run its mandatory generation gate before writing any URL/hostname into config or code. The policy: prefer a stable native internal mechanism when one exists (in practice, only Kamal accessories qualify - see item #6); otherwise route application-role-to-application-role HTTP(S) calls through `kamal-proxy` (same-host internal Docker-network route when available, its public `proxy.host` otherwise - both are the same mechanism, and using the public one is a valid outcome, not a defect); stop and present an explicit architectural decision only when the user has stated a unit must be inaccessible from the Internet and `kamal-proxy` can't satisfy that. **`kamal-proxy` is the only reverse proxy this Skill generates or depends on** - never introduce Traefik, nginx, Caddy, HAProxy, or any other ingress layer to solve app-to-app discovery. Sharing the `kamal` Docker network does **not** by itself give an application-role container a stable hostname: never generate `http://<service>:<port>` or any other bare/guessed application-role hostname (e.g. `<service>-web-1`), even as a placeholder with a disclaimer comment - the pattern file's "Generation gate" blocks target generation instead. Kamal accessories are the one exception: their `service_name` (e.g. `<service>-postgres`) is genuinely stable and not versioned; do not extend that exception to application-role services. Exposure (is this unit reachable from the internet) and inter-service communication (how callers reach it) are separate questions - decide both independently.
 
-Do not ask for secrets values in chat. Instruct the user to place secrets in `.kamal/secrets` and `.kamal/secrets-common` as instructed by the recipe (or the unit-suffixed equivalents from `agents/patterns/multi-service-repo.md` when there are multiple Kamal-managed units). If the target repo provides wrapper-managed staging secrets, treat those values as generated or managed by the wrapper flow and do not ask for them ad hoc.
+Do not ask for secrets values in chat. Instruct the user to place secrets in the destination's own file (`.kamal/secrets.<destination>`, e.g. `.kamal/secrets.production`) as instructed by the recipe - `.kamal/secrets-common` only for values identical in every destination, never environment-specific secrets (or the unit-suffixed equivalents from `agents/patterns/multi-service-repo.md` when there are multiple Kamal-managed units). If the target repo provides wrapper-managed staging secrets, treat those values as generated or managed by the wrapper flow and do not ask for them ad hoc.
 
 ## Step 5: Apply Recipe
 
@@ -256,9 +256,9 @@ Follow the loaded recipe (and any loaded cross-cutting patterns) to, for the cur
    - Common fixable errors: missing base image tag, wrong `COPY` path, missing `RUN` dependency, incorrect `CMD` format, missing build argument.
    - If the error is caused by missing application source files (e.g. the project has no `src/` yet), note this in the summary and continue - the Dockerfile is structurally valid.
 4. Create or update the deployment config per the boundary decided in `agents/patterns/deployment-boundary.md`: a single `config/deploy.yml` with this unit represented as a `servers.<role>` entry (and/or an `accessories.<name>` entry) when it was consolidated at Level 1/2, or `config/deploy.<unit>.yml` per `agents/patterns/multi-service-repo.md` only when the boundary step placed this unit in a genuinely separate Level 3 deployment. Also create `config/deploy.staging.yml` / `config/deploy.production.yml` if multiple destinations.
-5. Create `.kamal/secrets` template with placeholder instructions (one shared file for a consolidated deployment; the unit-suffixed path from the multi-service pattern only for a genuinely separate Level 3 deployment).
+5. Create one `.kamal/secrets.<destination>` template per destination with placeholder instructions (`.kamal/secrets.production` by default, with `config/deploy.production.yml` as the `production` destination - `{}` when there is nothing to override; Kamal reads the plain `.kamal/secrets` only when no destination is passed; one file per destination for a consolidated deployment; the unit-suffixed path from the multi-service pattern only for a genuinely separate Level 3 deployment).
 6. Create `.kamal/hooks/` scripts if the recipe or `agents/patterns/database-migrations.md` calls for them.
-7. Add `.kamal/secrets` (or its unit-suffixed equivalents) to `.gitignore`.
+7. Add `.kamal/secrets.*` (or the unit-suffixed equivalents) to `.gitignore`; with a SOPS backend where every line is a command substitution, un-ignore each committed destination file explicitly.
 8. **Fail-fast startup diagnostics.** If the stack already validates required configuration at boot (crashes immediately with a clear error on missing/invalid env vars, rather than degrading silently), leave it as-is and note it as a point in the unit's favor. If no such check exists and the recipe's env var list includes anything the app cannot run correctly without, do not add new validation code speculatively - just note to the user, in the summary, which env vars are load-bearing so a misconfigured deploy is easy to diagnose from the first boot log rather than from a mysterious runtime error later.
 9. **Scope discipline.** Applying a recipe routinely surfaces unrelated issues (an insecure Dockerfile running as root, an outdated base image, a missing `.dockerignore`, etc.) that aren't required to make the deployment work. Only fix one of these outside what the recipe/this Step actually calls for when it's required for deployment correctness, or the user explicitly approved it as a separate, named change. Otherwise, surface it as a note in the Step 7 summary and leave it alone - do not bundle unrelated hardening/cleanup into deployment changes.
 
@@ -291,7 +291,9 @@ Adapt destination/secrets sourcing to match the recipe and the registry chosen i
 set -euo pipefail
 
 # Peek -d/--destination WITHOUT removing it from "$@" - kamal needs to see it too.
-destination="production"
+# The destination selects which environment's secrets Kamal reads
+# (.kamal/secrets.<destination>), so make it explicit.
+destination="${KAMAL_DESTINATION:-production}"
 args=("$@")
 for i in "${!args[@]}"; do
   if [[ "${args[$i]}" == "-d" || "${args[$i]}" == "--destination" ]]; then
@@ -299,10 +301,10 @@ for i in "${!args[@]}"; do
   fi
 done
 
-if [[ -f ".kamal/secrets-${destination}" ]]; then
-  set -a
-  source ".kamal/secrets-${destination}"
-  set +a
+# With the SOPS helper installed, verify THIS destination's secrets first.
+if [[ -x bin/secrets ]] && ! bin/secrets "$destination" check >/dev/null; then
+  echo "ERROR: secrets are not ready - run 'bin/secrets $destination check'." >&2
+  exit 1
 fi
 
 exec kamal deploy "$@"
@@ -456,10 +458,10 @@ After completing all steps, provide a concise summary:
 ## Secrets Policy
 
 1. Never ask the user to paste secrets in chat (passwords, tokens, API keys, registry credentials).
-2. Always instruct users to put secrets in `.kamal/secrets` locally and in their CI/CD secret storage.
+2. Always instruct users to put secrets in the destination's `.kamal/secrets.<destination>` locally (one file per environment) and in their CI/CD secret storage.
 3. Ask the user to confirm a secret is set ("done") rather than pasting its value.
 4. If the user pastes a secret anyway, instruct immediate rotation and continue with the secure flow.
-5. Gitignore `.kamal/secrets` by default; it may be committed only when every line resolves via command substitution from a committed encrypted backend with no literal secret value present (see `agents/patterns/secrets-sops-age.md`).
+5. Gitignore `.kamal/secrets.*` by default; a destination file may be committed only when every line resolves via command substitution from that environment's committed encrypted file with no literal secret value present, and `.kamal/secrets-common` never holds secret values (see `agents/patterns/secrets-sops-age.md`).
 6. Never ask the user for a deployment value the Skill can derive deterministically from its own Kamal/accessory configuration plus already-stored secret primitives - see `agents/patterns/derived-deployment-values.md`. Store secret primitives, not duplicated derived representations of them.
 7. **The model may decide how a secret should be generated, but must never generate cryptographic secret material itself.** When a secret primitive needs a value - automatically, because the Skill owns new infrastructure requiring one, or because the user explicitly asked for a secret to be generated/rotated - use a trusted CSPRNG or protocol-specific tool, write the result directly into the selected secrets backend, validate the write, and report only that generation succeeded; never print, log, or otherwise surface the value. Existing real values are never silently overwritten - replacing one is rotation, not generation, and requires explicit rotation intent. See `agents/patterns/secret-generation.md` for the full policy.
 
